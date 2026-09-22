@@ -1,0 +1,6 @@
+{
+  "name": "سامانه هوشمند یارکشی و قرعه‌کشی تیم‌ها",
+  "description": "سامانه فوق‌العاده زیبا و هوشمند برای یارکشی تصادفی و متوازن، مدیریت بازیکنان، مسابقات، کاپیتانی و اشتراک‌گذاری تیم‌ها",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
