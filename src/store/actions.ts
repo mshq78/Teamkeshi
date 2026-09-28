@@ -116,6 +116,8 @@ export type AppAction =
       type: 'IMPORT_BACKUP';
       payload: {
         state: AppState;
+        /** Set when the state comes from the sync server or another tab, not from the user */
+        fromSync?: boolean;
       };
     }
   | {

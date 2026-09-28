@@ -10,6 +10,7 @@ import { EventFormModal } from './EventFormModal';
 import { IndicatorFormModal } from './IndicatorFormModal';
 import { JudgeFormModal } from './JudgeFormModal';
 import { ExcelImportModal } from './ExcelImportModal';
+import { JudgeQrModal } from './JudgeQrModal';
 import {
   Calendar,
   Plus,
@@ -49,6 +50,7 @@ export const ScoringSetupView: React.FC<ScoringSetupViewProps> = ({ state, dispa
     indicator: ScoringIndicator | null;
   } | null>(null);
   const [editingJudge, setEditingJudge] = useState<Judge | null | 'new'>(null);
+  const [isQrOpen, setIsQrOpen] = useState(false);
 
   // Deletion confirms
   const [confirmDeleteEvent, setConfirmDeleteEvent] = useState<ScoringEvent | null>(null);
@@ -653,6 +655,13 @@ export const ScoringSetupView: React.FC<ScoringSetupViewProps> = ({ state, dispa
             </div>
           </div>
 
+          <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsQrOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-all cursor-pointer"
+          >
+            <span>کارت QR داوران</span>
+          </button>
           <button
             onClick={() => setEditingJudge('new')}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
@@ -660,7 +669,9 @@ export const ScoringSetupView: React.FC<ScoringSetupViewProps> = ({ state, dispa
             <Plus className="w-4 h-4" />
             <span>افزودن داور جدید</span>
           </button>
+          </div>
         </div>
+        {isQrOpen && <JudgeQrModal judges={judges} onClose={() => setIsQrOpen(false)} />}
 
         {judges.length === 0 ? (
           <div className="p-6 rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 text-center space-y-2">

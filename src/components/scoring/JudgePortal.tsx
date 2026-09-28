@@ -4,6 +4,8 @@ import { AppAction } from '../../store/actions';
 import { ScoringEvent, Judge, BootcampTeam, ScoringIndicator } from '../../types';
 import { toPersianDigits } from '../../utils/persian';
 import { sound } from '../../utils/sound';
+import { syncEngine } from '../../sync/engine';
+import { SyncBadge } from '../SyncBadge';
 import {
   Award,
   CheckCircle2,
@@ -23,20 +25,13 @@ interface JudgePortalProps {
   dispatch: React.Dispatch<AppAction>;
 }
 
-const SESSION_KEY = 'teamkeshi_judge_id';
-
 export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => {
   const { events, judges, scores, notes } = state.scoring;
   const teams = state.teams;
 
   // Login session
-  const [currentJudgeId, setCurrentJudgeId] = useState<string | null>(() => {
-    try {
-      return sessionStorage.getItem(SESSION_KEY);
-    } catch {
-      return null;
-    }
-  });
+  const [currentJudgeId, setCurrentJudgeId] = useState<string | null>(() => syncEngine.judgeId);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [inputCode, setInputCode] = useState<string>('');
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -59,9 +54,7 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
   // If judge was deleted or invalid, clear session
   useEffect(() => {
     if (currentJudgeId && !currentJudge) {
-      try {
-        sessionStorage.removeItem(SESSION_KEY);
-      } catch {}
+      syncEngine.logoutJudge();
       setCurrentJudgeId(null);
     }
   }, [currentJudgeId, currentJudge]);
@@ -96,13 +89,15 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
     return true;
   };
 
-  // Login handler
-  const handleLogin = (e?: React.FormEvent) => {
+  // Login handler — the code is checked by the sync server, so a fresh phone
+  // needs nothing but the code (or the QR link, which fills it in).
+  const handleLogin = async (e?: React.FormEvent, codeOverride?: string) => {
     if (e) e.preventDefault();
+    if (isLoggingIn) return;
     setLoginError(null);
 
     // Normalize Persian digits to English
-    const cleanCode = inputCode
+    const cleanCode = (codeOverride ?? inputCode)
       .trim()
       .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
 
@@ -111,25 +106,36 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
       return;
     }
 
-    const matchedJudge = judges.find((j) => j.accessCode === cleanCode);
+    setIsLoggingIn(true);
+    const error = await syncEngine.loginJudge(cleanCode);
+    setIsLoggingIn(false);
 
-    if (matchedJudge) {
-      try {
-        sessionStorage.setItem(SESSION_KEY, matchedJudge.id);
-      } catch {}
-      setCurrentJudgeId(matchedJudge.id);
+    if (!error) {
+      setCurrentJudgeId(syncEngine.judgeId);
       sound.playPop();
     } else {
-      setLoginError('کد داوری نامعتبر است. لطفاً کد ۴ رقمی صحیح را وارد نمایید.');
+      setLoginError(error);
       sound.playWhistle();
     }
   };
 
+  // Auto-login from a QR link (?judge=1&code=1234)
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (!code) return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete('code');
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    if (!currentJudgeId) {
+      setInputCode(code);
+      void handleLogin(undefined, code);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Logout handler
   const handleLogout = () => {
-    try {
-      sessionStorage.removeItem(SESSION_KEY);
-    } catch {}
+    syncEngine.logoutJudge();
     setCurrentJudgeId(null);
     setSelectedEventId(null);
     setInputCode('');
@@ -236,19 +242,7 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
                   setLoginError(null);
                   if (e.target.value.length === 4) {
                     // Auto submit on 4 digits
-                    setTimeout(() => {
-                      const clean = e.target.value
-                        .trim()
-                        .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
-                      const j = judges.find((item) => item.accessCode === clean);
-                      if (j) {
-                        try {
-                          sessionStorage.setItem(SESSION_KEY, j.id);
-                        } catch {}
-                        setCurrentJudgeId(j.id);
-                        sound.playPop();
-                      }
-                    }, 50);
+                    void handleLogin(undefined, e.target.value);
                   }
                 }}
                 placeholder="— — — —"
@@ -266,7 +260,7 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
               type="submit"
               className="w-full py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-sm shadow-lg shadow-cyan-500/20 transition-all cursor-pointer"
             >
-              ورود به سامانه داوری
+              {isLoggingIn ? 'در حال بررسی…' : 'ورود به سامانه داوری'}
             </button>
           </form>
 
@@ -293,6 +287,7 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
             </div>
           </div>
 
+          <SyncBadge compact />
           <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
@@ -435,6 +430,7 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
           </div>
         </div>
 
+        <SyncBadge compact />
         <button
           onClick={handleLogout}
           className="text-xs text-slate-400 hover:text-rose-400 p-1 cursor-pointer"

@@ -43,10 +43,10 @@ function sanitizeScoring(rawScoring?: Partial<ScoringState>): ScoringState {
  * Automatically migrates older schema versions (v2 keys, v3 state) if present.
  * Guaranteed never to crash; falls back to INITIAL_STATE on corruption.
  */
-export function loadState(): AppState {
+export function loadState(storageKey: string = STORAGE_KEY_V3): AppState {
   try {
     // 1. Check if current state exists
-    const v3Raw = localStorage.getItem(STORAGE_KEY_V3);
+    const v3Raw = localStorage.getItem(storageKey);
     if (v3Raw) {
       const parsed = JSON.parse(v3Raw);
       if (
@@ -81,14 +81,15 @@ export function loadState(): AppState {
         };
 
         if (parsed.schemaVersion !== 4) {
-          saveState(state);
+          saveState(state, storageKey);
         }
 
         return state;
       }
     }
 
-    // 2. Check for old v2 localStorage keys and migrate
+    // 2. Check for old v2 localStorage keys and migrate (operator data only)
+    if (storageKey !== STORAGE_KEY_V3) return INITIAL_STATE;
     const oldParticipantsRaw = localStorage.getItem(OLD_KEY_PARTICIPANTS);
     const oldTeamsRaw = localStorage.getItem(OLD_KEY_TEAMS);
     const oldSettingsRaw = localStorage.getItem(OLD_KEY_SETTINGS);
@@ -200,9 +201,9 @@ export function loadState(): AppState {
 /**
  * Saves the application state to localStorage.
  */
-export function saveState(state: AppState): void {
+export function saveState(state: AppState, storageKey: string = STORAGE_KEY_V3): void {
   try {
-    localStorage.setItem(STORAGE_KEY_V3, JSON.stringify(state));
+    localStorage.setItem(storageKey, JSON.stringify(state));
   } catch (error) {
     console.error('Failed to save state to localStorage:', error);
   }

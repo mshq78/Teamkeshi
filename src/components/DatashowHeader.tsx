@@ -25,6 +25,7 @@ import {
 import { AppMode, DisplaySize, DisplayTheme } from '../types';
 import { AppState } from '../store/state';
 import { validateAndSanitizeBackup } from '../utils/backup';
+import { SyncBadge } from './SyncBadge';
 import { sound } from '../utils/sound';
 import { toPersianDigits } from '../utils/persian';
 
@@ -365,6 +366,8 @@ export const DatashowHeader: React.FC<DatashowHeaderProps> = ({
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
+
+          <SyncBadge />
 
           {/* Backup dropdown menu */}
           <div className="relative">
