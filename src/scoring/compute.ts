@@ -40,7 +40,8 @@ export function computeEventScore(
       const key = `${judge.id}|${teamId}|${indicator.id}`;
       const entry = state.scoring.scores[key];
       if (entry && entry.value !== null && entry.value !== undefined) {
-        judgeSum += entry.value / maxScore;
+        // Clamp: maxScore may have been lowered after scores were entered
+        judgeSum += Math.min(Math.max(entry.value, 0), maxScore) / maxScore;
         judgeCount++;
       }
     }
@@ -92,16 +93,13 @@ export function computeTeamCompletionPercentage(
 }
 
 /**
- * Computes standings for all teams in state.teams.
- * Returns sorted list of TeamStanding according to settings and tie-break rules.
+ * Computes LIVE standings for all teams in state.teams.
+ * Always ignores the leaderboard freeze: the freeze only affects what the stage
+ * leaderboard displays (see getDisplayedStandings), never the real results used
+ * by the reveal, the report or the rank history.
  */
 export function computeStandings(state: AppState): TeamStanding[] {
   const { events, adjustments, settings } = state.scoring;
-
-  // If frozen and snapshot exists, return snapshot
-  if (settings.leaderboardFrozen && settings.frozenSnapshot && settings.frozenSnapshot.length > 0) {
-    return settings.frozenSnapshot;
-  }
 
   // Pre-calculate raw data for each team
   const rawList = state.teams.map((team) => {
@@ -244,6 +242,19 @@ export function computeStandings(state: AppState): TeamStanding[] {
   }
 
   return standings;
+}
+
+/**
+ * Standings shown on the stage leaderboard: the frozen snapshot while the
+ * leaderboard is frozen, otherwise live standings.
+ */
+export function getDisplayedStandings(state: AppState): TeamStanding[] {
+  const { leaderboardFrozen, frozenSnapshot } = state.scoring.settings;
+  if (leaderboardFrozen && frozenSnapshot && frozenSnapshot.length > 0) {
+    const teamIds = new Set(state.teams.map((t) => t.id));
+    return frozenSnapshot.filter((s) => teamIds.has(s.teamId));
+  }
+  return computeStandings(state);
 }
 
 /**

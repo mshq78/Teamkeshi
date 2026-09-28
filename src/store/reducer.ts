@@ -562,10 +562,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         return state;
       }
 
-      // Find indicator to validate maxScore
-      const indicator =
-        targetEvent?.indicators.find((ind) => ind.id === indicatorId) ||
-        state.scoring.events.flatMap((e) => e.indicators).find((ind) => ind.id === indicatorId);
+      // The indicator must exist and belong to this event; the team and judge must exist
+      const indicator = targetEvent?.indicators.find((ind) => ind.id === indicatorId);
+      if (
+        !indicator ||
+        !state.teams.some((t) => t.id === teamId) ||
+        !state.scoring.judges.some((j) => j.id === judgeId)
+      ) {
+        return state;
+      }
 
       // Validate in the reducer: value must be an integer from 0 to that indicator's maxScore, or null.
       // Ignore invalid values.
@@ -573,8 +578,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         if (typeof value !== 'number' || isNaN(value) || !Number.isInteger(value)) {
           return state;
         }
-        const maxScore = indicator ? indicator.maxScore : 10;
-        if (value < 0 || value > maxScore) {
+        if (value < 0 || value > indicator.maxScore) {
           return state;
         }
       }

@@ -224,7 +224,7 @@ export const FacilitatorAdjustmentsView: React.FC<FacilitatorAdjustmentsViewProp
                         <h4 className="font-bold text-sm sm:text-base text-white">{team.name}</h4>
                         {team.tableNumber && (
                           <span className="text-xs text-slate-400">
-                            میز شماره {toPersianDigits(team.tableNumber)}
+                            {toPersianDigits(team.tableNumber)}
                           </span>
                         )}
                       </div>

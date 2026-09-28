@@ -370,7 +370,7 @@ export const FinalReportView: React.FC<FinalReportViewProps> = ({
                             <span className="font-bold text-white block">{team.name}</span>
                             {team.tableNumber && (
                               <span className="text-[10px] text-slate-500">
-                                میز {toPersianDigits(team.tableNumber)}
+                                {toPersianDigits(team.tableNumber)}
                               </span>
                             )}
                           </div>
@@ -627,7 +627,7 @@ export const FinalReportView: React.FC<FinalReportViewProps> = ({
                   <h1 className="text-xl font-black">کارنامه نهایی ارزیابی تیم</h1>
                   <h2 className="text-base font-bold text-slate-700">{team.name}</h2>
                   {team.tableNumber && (
-                    <span className="text-xs text-slate-500">میز: {team.tableNumber}</span>
+                    <span className="text-xs text-slate-500">{toPersianDigits(team.tableNumber)}</span>
                   )}
                 </div>
 

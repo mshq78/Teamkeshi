@@ -270,31 +270,6 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
             </button>
           </form>
 
-          {/* Quick testing helper if judges exist */}
-          {judges.length > 0 && (
-            <div className="pt-4 border-t border-slate-800/80 text-[11px] text-slate-500 text-right space-y-1">
-              <span className="font-bold text-slate-400">کدهای داوران جهت تست:</span>
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {judges.map((j) => (
-                  <button
-                    key={j.id}
-                    type="button"
-                    onClick={() => {
-                      setInputCode(j.accessCode);
-                      try {
-                        sessionStorage.setItem(SESSION_KEY, j.id);
-                      } catch {}
-                      setCurrentJudgeId(j.id);
-                      sound.playPop();
-                    }}
-                    className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-[10px] cursor-pointer"
-                  >
-                    {j.name} ({j.accessCode})
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -534,7 +509,7 @@ export const JudgePortal: React.FC<JudgePortalProps> = ({ state, dispatch }) => 
                   <h3 className="text-lg font-black text-white">{currentTeam.name}</h3>
                   {currentTeam.tableNumber && (
                     <span className="text-xs text-slate-400">
-                      میز شماره {toPersianDigits(currentTeam.tableNumber)}
+                      {toPersianDigits(currentTeam.tableNumber)}
                     </span>
                   )}
                 </div>

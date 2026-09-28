@@ -511,7 +511,7 @@ export const OperatorScoreEntryView: React.FC<OperatorScoreEntryViewProps> = ({ 
                         </span>
                         {team.tableNumber && (
                           <span className="text-[10px] text-slate-500">
-                            میز {toPersianDigits(team.tableNumber)}
+                            {toPersianDigits(team.tableNumber)}
                           </span>
                         )}
                       </div>

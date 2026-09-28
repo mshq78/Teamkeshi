@@ -4,7 +4,7 @@ import confetti from 'canvas-confetti';
 import { AppState } from '../../store/state';
 import { AppAction } from '../../store/actions';
 import { TeamStanding, ScoringEvent, BootcampTeam } from '../../types';
-import { computeStandings, computeEventWinners, roundToOneDecimal } from '../../scoring/compute';
+import { computeStandings, computeEventWinners, getDisplayedStandings, roundToOneDecimal } from '../../scoring/compute';
 import { toPersianDigits } from '../../utils/persian';
 import { sound } from '../../utils/sound';
 import { TEAM_COLOR_PALETTES } from '../../utils/defaultData';
@@ -39,7 +39,7 @@ export const StageMode: React.FC<StageModeProps> = ({ state, dispatch }) => {
   const { teams, participants, settings } = state;
   const { displaySize, displayTheme } = settings;
   const { events, settings: scoringSettings } = state.scoring;
-  const { leaderboardFrozen, frozenSnapshot, announceEventAwardsFirst } = scoringSettings;
+  const { leaderboardFrozen, announceEventAwardsFirst } = scoringSettings;
 
   // View state: 'leaderboard' or 'reveal'
   const [activeSubMode, setActiveSubMode] = useState<'leaderboard' | 'reveal'>('leaderboard');
@@ -54,12 +54,11 @@ export const StageMode: React.FC<StageModeProps> = ({ state, dispatch }) => {
   const initialMountRef = useRef(true);
 
   // Compute live or frozen standings
-  const currentStandings: TeamStanding[] = useMemo(() => {
-    if (leaderboardFrozen && frozenSnapshot && frozenSnapshot.length > 0) {
-      return frozenSnapshot;
-    }
-    return computeStandings(state);
-  }, [leaderboardFrozen, frozenSnapshot, state]);
+  const currentStandings: TeamStanding[] = useMemo(() => getDisplayedStandings(state), [state]);
+
+  // The reveal must always announce the real (live) results, even while the
+  // leaderboard is frozen.
+  const liveStandings: TeamStanding[] = useMemo(() => computeStandings(state), [state]);
 
   // Update previous rankings when standings change
   useEffect(() => {
@@ -227,7 +226,7 @@ export const StageMode: React.FC<StageModeProps> = ({ state, dispatch }) => {
 
     // Sort standings ascending by rank descending:
     // e.g. Rank 6 first, then Rank 5, ..., down to Rank 1 last!
-    const standingsByRankDesc = [...currentStandings].sort((a, b) => b.rank - a.rank);
+    const standingsByRankDesc = [...liveStandings].sort((a, b) => b.rank - a.rank);
 
     standingsByRankDesc.forEach((st, idx) => {
       const isWinner = st.rank === 1;
@@ -242,7 +241,7 @@ export const StageMode: React.FC<StageModeProps> = ({ state, dispatch }) => {
     });
 
     return steps;
-  }, [announceEventAwardsFirst, closedEventsWithWinners, eventWinners, currentStandings]);
+  }, [announceEventAwardsFirst, closedEventsWithWinners, eventWinners, liveStandings]);
 
   // Current revealed step index (-1 = intro screen before revealing)
   const [currentRevealStep, setCurrentRevealStep] = useState<number>(-1);
@@ -780,7 +779,7 @@ export const StageMode: React.FC<StageModeProps> = ({ state, dispatch }) => {
                       className={`text-slate-400 truncate ${sizeClasses.leaderName} font-medium`}
                     >
                       {leader ? `سرگروه: ${leader.name}` : `تیم بدون لیدر`}
-                      {team.tableNumber && ` • میز ${toPersianDigits(team.tableNumber)}`}
+                      {team.tableNumber && ` • ${toPersianDigits(team.tableNumber)}`}
                     </div>
                   </div>
                 </div>
