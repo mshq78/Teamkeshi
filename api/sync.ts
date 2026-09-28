@@ -9,8 +9,8 @@
  * - ADMIN_KEY     long random secret; the operator opens the app once with ?admin=<ADMIN_KEY>
  */
 import { neon } from '@neondatabase/serverless';
-import { ApiRequest, Store, handleApi } from '../server/core';
-import { createPostgresStore } from '../server/store-postgres';
+import { handleApi, type ApiRequest, type Store } from '../server/core.js';
+import { createPostgresStore } from '../server/store-postgres.js';
 
 const DATABASE_URL = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
 const MAX_BODY = 4 * 1024 * 1024;

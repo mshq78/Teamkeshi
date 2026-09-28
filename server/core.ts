@@ -4,15 +4,15 @@
  * - server/server.ts  (Node server on a VPS or the operator laptop + JSON file)
  */
 import crypto from 'node:crypto';
-import { AppState } from '../src/store/state';
-import { Judge } from '../src/types';
+import type { AppState } from '../src/store/state';
+import type { Judge } from '../src/types';
 import {
-  JudgeOp,
+  type JudgeOp,
   applyJudgeOps,
   isAppStateLike,
   mergeOperatorState,
   redactForJudge,
-} from '../src/sync/merge';
+} from '../src/sync/merge.js';
 
 export interface StoredState {
   rev: number;

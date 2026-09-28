@@ -1,5 +1,5 @@
-import { AppState } from './state';
-import { AppAction } from './actions';
+import type { AppState } from './state';
+import type { AppAction } from './actions';
 
 /**
  * Pure reducer function for all AppState mutations.

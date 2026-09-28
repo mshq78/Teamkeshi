@@ -1,6 +1,6 @@
-import { AppState } from '../store/state';
-import { appReducer } from '../store/reducer';
-import { ScoreEntry, ScoreNote } from '../types';
+import type { AppState } from '../store/state';
+import { appReducer } from '../store/reducer.js';
+import type { ScoreEntry, ScoreNote } from '../types';
 
 /**
  * Pure merge helpers shared by the sync server (Node) and the browser client.

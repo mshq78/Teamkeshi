@@ -5,9 +5,9 @@
  * `pg` against a local Postgres in tests.
  */
 import crypto from 'node:crypto';
-import { AppState } from '../src/store/state';
-import { Judge } from '../src/types';
-import { LOGIN_BLOCK_MS, LOGIN_MAX_FAILURES, Store, StoredState } from './core';
+import type { AppState } from '../src/store/state';
+import type { Judge } from '../src/types';
+import { LOGIN_BLOCK_MS, LOGIN_MAX_FAILURES, type Store, type StoredState } from './core.js';
 
 export type SqlExecutor = (text: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
 
