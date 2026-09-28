@@ -17,6 +17,7 @@ import { sound } from '../utils/sound';
 interface SimpleDraftViewProps {
   unassigned: Participant[];
   teams: BootcampTeam[];
+  teamMembersMap: Map<string, Participant[]>;
   displaySize: DisplaySize;
   onAssignToTeam: (participantId: string, teamId: string) => void;
   onUpdateTeam: (team: BootcampTeam) => void;
@@ -26,11 +27,13 @@ interface SimpleDraftViewProps {
   onOpenSmsForTeam: (team: BootcampTeam) => void;
   onAutoFillRemaining: () => void;
   onReturnToHall?: (participantId: string) => void;
+  onUpdateParticipantPhone?: (participantId: string, phone: string) => void;
 }
 
 export const SimpleDraftView: React.FC<SimpleDraftViewProps> = ({
   unassigned,
   teams,
+  teamMembersMap,
   displaySize,
   onAssignToTeam,
   onUpdateTeam,
@@ -40,6 +43,7 @@ export const SimpleDraftView: React.FC<SimpleDraftViewProps> = ({
   onOpenSmsForTeam,
   onAutoFillRemaining,
   onReturnToHall,
+  onUpdateParticipantPhone,
 }) => {
   // Mobile tab state
   const [mobileTab, setMobileTab] = useState<'roster' | 'teams'>('teams');
@@ -98,7 +102,7 @@ export const SimpleDraftView: React.FC<SimpleDraftViewProps> = ({
                   sound.playClick();
                   setRightColWidth('ultra_compact');
                 }}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
                   rightColWidth === 'ultra_compact'
                     ? 'bg-amber-500 text-slate-950 font-black'
                     : 'text-slate-400 hover:text-white'
@@ -112,7 +116,7 @@ export const SimpleDraftView: React.FC<SimpleDraftViewProps> = ({
                   sound.playClick();
                   setRightColWidth('compact');
                 }}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
                   rightColWidth === 'compact'
                     ? 'bg-amber-500 text-slate-950 font-black'
                     : 'text-slate-400 hover:text-white'
@@ -126,7 +130,7 @@ export const SimpleDraftView: React.FC<SimpleDraftViewProps> = ({
                   sound.playClick();
                   setRightColWidth('balanced');
                 }}
-                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
                   rightColWidth === 'balanced'
                     ? 'bg-amber-500 text-slate-950 font-black'
                     : 'text-slate-400 hover:text-white'
@@ -256,12 +260,14 @@ export const SimpleDraftView: React.FC<SimpleDraftViewProps> = ({
                     team={team}
                     teamIndex={idx}
                     displaySize={displaySize}
+                    members={teamMembersMap.get(team.id) || []}
                     allTeams={teams}
                     onUpdateTeam={onUpdateTeam}
                     onRemoveMember={onRemoveMember}
                     onPromoteToLeader={onPromoteToLeader}
                     onDropParticipant={onAssignToTeam}
                     onOpenSmsForTeam={onOpenSmsForTeam}
+                    onUpdateParticipantPhone={onUpdateParticipantPhone}
                   />
                 </div>
               ))}
@@ -297,12 +303,14 @@ export const SimpleDraftView: React.FC<SimpleDraftViewProps> = ({
                     team={team}
                     teamIndex={idx}
                     displaySize={displaySize}
+                    members={teamMembersMap.get(team.id) || []}
                     allTeams={teams}
                     onUpdateTeam={onUpdateTeam}
                     onRemoveMember={onRemoveMember}
                     onPromoteToLeader={onPromoteToLeader}
                     onDropParticipant={onAssignToTeam}
                     onOpenSmsForTeam={onOpenSmsForTeam}
+                    onUpdateParticipantPhone={onUpdateParticipantPhone}
                   />
                 </div>
               ))}

@@ -90,10 +90,10 @@ export const UnassignedRoster: React.FC<UnassignedRosterProps> = ({
     ? 'text-base sm:text-lg'
     : displaySize === 'auditorium' ? 'text-2xl sm:text-3xl' : displaySize === 'projector' ? 'text-xl sm:text-2xl' : 'text-lg';
 
-  // Dynamic grid columns: 2 columns in side-by-side mode (۲ ردیفه/۲ ستونه), with dense option
+  // Dynamic grid columns: strictly 2 columns in side-by-side mode (۲ ردیفه/۲ ستونه), with dense option
   const gridColumns = isNarrowColumn
     ? cardDensity === 'dense'
-      ? 'grid-cols-2 xl:grid-cols-3 gap-1.5'
+      ? 'grid-cols-2 gap-1.5'
       : 'grid-cols-2 gap-2'
     : cardDensity === 'dense'
     ? 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-1.5'
@@ -148,7 +148,7 @@ export const UnassignedRoster: React.FC<UnassignedRosterProps> = ({
                 sound.playClick();
                 setCardDensity('comfortable');
               }}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 cardDensity === 'comfortable' 
                   ? 'bg-amber-500 text-slate-950 shadow-md font-black ring-1 ring-amber-400' 
                   : 'text-slate-400 hover:text-white'
@@ -156,14 +156,14 @@ export const UnassignedRoster: React.FC<UnassignedRosterProps> = ({
               title="نمای کارت‌های درشت ۲ ستونه"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="text-[11px] hidden sm:inline">درشت</span>
+              <span className="text-[11px]">درشت</span>
             </button>
             <button
               onClick={() => {
                 sound.playClick();
                 setCardDensity('dense');
               }}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 cardDensity === 'dense' 
                   ? 'bg-amber-500 text-slate-950 shadow-md font-black ring-1 ring-amber-400' 
                   : 'text-slate-400 hover:text-white'
@@ -171,7 +171,7 @@ export const UnassignedRoster: React.FC<UnassignedRosterProps> = ({
               title="نمای متراکم و فشرده (جا شدن تمامی افراد روی پرده)"
             >
               <List className="w-3.5 h-3.5" />
-              <span className="text-[11px] hidden sm:inline">فشرده</span>
+              <span className="text-[11px]">فشرده</span>
             </button>
           </div>
 

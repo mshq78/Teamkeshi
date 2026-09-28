@@ -13,7 +13,7 @@ import {
   MessageSquare,
   GripVertical
 } from 'lucide-react';
-import { BootcampTeam, DisplaySize } from '../types';
+import { BootcampTeam, DisplaySize, Participant } from '../types';
 import { toPersianDigits } from '../utils/persian';
 import { sound } from '../utils/sound';
 import { BOOTCAMP_TEAM_NAMES } from '../utils/defaultData';
@@ -22,6 +22,7 @@ interface TeamCardProps {
   team: BootcampTeam;
   teamIndex: number;
   displaySize: DisplaySize;
+  members: Participant[];
   allTeams?: BootcampTeam[];
   isActiveTurn?: boolean;
   onUpdateTeam: (team: BootcampTeam) => void;
@@ -29,12 +30,14 @@ interface TeamCardProps {
   onPromoteToLeader: (teamId: string, participantId: string) => void;
   onDropParticipant: (participantId: string, teamId: string) => void;
   onOpenSmsForTeam?: (team: BootcampTeam) => void;
+  onUpdateParticipantPhone?: (participantId: string, phone: string) => void;
 }
 
 export const TeamCard: React.FC<TeamCardProps> = ({
   team,
   teamIndex,
   displaySize,
+  members,
   allTeams,
   isActiveTurn = false,
   onUpdateTeam,
@@ -42,15 +45,21 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   onPromoteToLeader,
   onDropParticipant,
   onOpenSmsForTeam,
+  onUpdateParticipantPhone,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(team.name);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
-  const [editedPhone, setEditedPhone] = useState(team.leaderPhone || '');
 
-  const leader = team.members[0];
-  const regularMembers = team.members.slice(1);
+  const leader = members[0];
+  const regularMembers = members.slice(1);
+  const [editedPhone, setEditedPhone] = useState(leader?.phone || '');
+
+  // Keep edited phone in sync when leader changes
+  React.useEffect(() => {
+    setEditedPhone(leader?.phone || '');
+  }, [leader?.id, leader?.phone]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -88,7 +97,9 @@ export const TeamCard: React.FC<TeamCardProps> = ({
   };
 
   const savePhone = () => {
-    onUpdateTeam({ ...team, leaderPhone: editedPhone.trim() });
+    if (leader && onUpdateParticipantPhone) {
+      onUpdateParticipantPhone(leader.id, editedPhone.trim());
+    }
     setIsEditingPhone(false);
   };
 
@@ -189,7 +200,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
               <span>{team.tableNumber || `میز ${teamIndex + 1}`}</span>
             </span>
             <span aria-hidden="true">·</span>
-            <span>ظرفیت فعلی: <strong className="text-white font-mono">{toPersianDigits(team.members.length)}</strong> نفر</span>
+            <span>ظرفیت فعلی: <strong className="text-white font-mono">{toPersianDigits(members.length)}</strong> نفر</span>
           </div>
         </div>
 
@@ -197,9 +208,9 @@ export const TeamCard: React.FC<TeamCardProps> = ({
         <div
           className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg font-mono shadow-md flex-shrink-0"
           style={{ backgroundColor: team.color, color: '#020617' }}
-          title={`تعداد اعضا: ${team.members.length}`}
+          title={`تعداد اعضا: ${members.length}`}
         >
-          {toPersianDigits(team.members.length)}
+          {toPersianDigits(members.length)}
         </div>
       </div>
 
@@ -267,14 +278,14 @@ export const TeamCard: React.FC<TeamCardProps> = ({
                 ) : (
                   <button
                     onClick={() => {
-                      setEditedPhone(team.leaderPhone || leader.phone || '');
+                      setEditedPhone(leader.phone || '');
                       setIsEditingPhone(true);
                     }}
                     className="hover:text-amber-300 transition-colors font-mono"
                     title="کلیک برای تنظیم شماره تماس جهت ارسال پیامک"
                   >
-                    {team.leaderPhone || leader.phone ? (
-                      <span className="text-amber-300/90 font-bold">{toPersianDigits(team.leaderPhone || leader.phone)}</span>
+                    {leader.phone ? (
+                      <span className="text-amber-300/90 font-bold">{toPersianDigits(leader.phone)}</span>
                     ) : (
                       <span className="text-slate-500 italic">+ افزودن شماره موبایل</span>
                     )}

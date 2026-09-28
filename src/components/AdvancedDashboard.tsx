@@ -21,6 +21,7 @@ import { sound } from '../utils/sound';
 interface AdvancedDashboardProps {
   unassigned: Participant[];
   teams: BootcampTeam[];
+  teamMembersMap: Map<string, Participant[]>;
   displaySize: DisplaySize;
   draftLog: DraftLogItem[];
   onAssignToTeam: (participantId: string, teamId: string) => void;
@@ -31,11 +32,13 @@ interface AdvancedDashboardProps {
   onOpenSmsForTeam: (team: BootcampTeam) => void;
   onAutoFillRemaining: () => void;
   onReturnToHall?: (participantId: string) => void;
+  onUpdateParticipantPhone?: (participantId: string, phone: string) => void;
 }
 
 export const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({
   unassigned,
   teams,
+  teamMembersMap,
   displaySize,
   draftLog,
   onAssignToTeam,
@@ -46,6 +49,7 @@ export const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({
   onOpenSmsForTeam,
   onAutoFillRemaining,
   onReturnToHall,
+  onUpdateParticipantPhone,
 }) => {
   // Turn state
   const [activeTeamIndex, setActiveTeamIndex] = useState(0);
@@ -58,7 +62,8 @@ export const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({
   const [isPitchRunning, setIsPitchRunning] = useState(false);
 
   const activeTeam = teams[activeTeamIndex] || teams[0];
-  const activeLeader = activeTeam?.members[0];
+  const activeMembers = activeTeam ? teamMembersMap.get(activeTeam.id) || [] : [];
+  const activeLeader = activeMembers[0];
 
   // Turn timer countdown
   useEffect(() => {
@@ -276,6 +281,7 @@ export const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({
                   team={team}
                   teamIndex={idx}
                   displaySize={displaySize}
+                  members={teamMembersMap.get(team.id) || []}
                   allTeams={teams}
                   isActiveTurn={idx === activeTeamIndex}
                   onUpdateTeam={onUpdateTeam}
@@ -283,6 +289,7 @@ export const AdvancedDashboard: React.FC<AdvancedDashboardProps> = ({
                   onPromoteToLeader={onPromoteToLeader}
                   onDropParticipant={handleAssignWithTurnAdvance}
                   onOpenSmsForTeam={onOpenSmsForTeam}
+                  onUpdateParticipantPhone={onUpdateParticipantPhone}
                 />
               </div>
             ))}

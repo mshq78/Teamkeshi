@@ -4,20 +4,21 @@ import {
   UserPlus, 
   ClipboardPaste, 
   Trash2, 
-  Check, 
-  Sparkles, 
-  FileText 
+  Sparkles 
 } from 'lucide-react';
 import { Participant } from '../types';
 import { BOOTCAMP_PRESETS } from '../utils/defaultData';
 import { toPersianDigits } from '../utils/persian';
+import { parseParticipantLines } from '../utils/parse';
 import { sound } from '../utils/sound';
 
 interface AddParticipantsModalProps {
   isOpen: boolean;
   onClose: () => void;
   participants: Participant[];
-  onSetParticipants: (participants: Participant[]) => void;
+  onAddParticipants: (participants: Participant[]) => void;
+  onRemoveParticipant: (participantId: string) => void;
+  onReplaceParticipants: (participants: Participant[]) => void;
   onResetEverything: () => void;
 }
 
@@ -25,7 +26,9 @@ export const AddParticipantsModal: React.FC<AddParticipantsModalProps> = ({
   isOpen,
   onClose,
   participants,
-  onSetParticipants,
+  onAddParticipants,
+  onRemoveParticipant,
+  onReplaceParticipants,
   onResetEverything,
 }) => {
   const [pasteText, setPasteText] = useState('');
@@ -46,7 +49,7 @@ export const AddParticipantsModal: React.FC<AddParticipantsModalProps> = ({
       phone: singlePhone.trim() || undefined,
     };
 
-    onSetParticipants([...participants, newParticipant]);
+    onAddParticipants([newParticipant]);
     setSingleName('');
     setSinglePhone('');
   };
@@ -55,26 +58,16 @@ export const AddParticipantsModal: React.FC<AddParticipantsModalProps> = ({
     if (!pasteText.trim()) return;
 
     sound.playFanfare();
-    // Split by lines or commas
-    const lines = pasteText
-      .split(/[\n,]+/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+    const parsed = parseParticipantLines(pasteText);
+    if (parsed.length === 0) return;
 
-    const newItems: Participant[] = lines.map((line, idx) => {
-      // Check if format is "Name - Phone" or "Name, Phone"
-      const parts = line.split(/[-–|]+/);
-      const name = parts[0]?.trim() || line;
-      const phone = parts[1]?.trim() || undefined;
+    const newItems: Participant[] = parsed.map((item, idx) => ({
+      id: `p-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+      name: item.name,
+      phone: item.phone,
+    }));
 
-      return {
-        id: `p-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
-        name,
-        phone,
-      };
-    });
-
-    onSetParticipants([...participants, ...newItems]);
+    onAddParticipants(newItems);
     setPasteText('');
   };
 
@@ -88,12 +81,12 @@ export const AddParticipantsModal: React.FC<AddParticipantsModalProps> = ({
       name,
     }));
 
-    onSetParticipants(newParticipants);
+    onReplaceParticipants(newParticipants);
   };
 
   const handleRemoveOne = (id: string) => {
     sound.playClick();
-    onSetParticipants(participants.filter((p) => p.id !== id));
+    onRemoveParticipant(id);
   };
 
   return (
@@ -139,7 +132,7 @@ export const AddParticipantsModal: React.FC<AddParticipantsModalProps> = ({
                 <button
                   key={key}
                   onClick={() => handleLoadPreset(key)}
-                  className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-cyan-500/60 text-right transition-all group"
+                  className="p-3 rounded-xl bg-slate-800/80 hover:bg-slate-750 border border-slate-700 hover:border-cyan-500/60 text-right transition-all group cursor-pointer"
                 >
                   <div className="font-black text-xs sm:text-sm text-cyan-300 group-hover:text-cyan-200">
                     {item.title}
@@ -156,22 +149,22 @@ export const AddParticipantsModal: React.FC<AddParticipantsModalProps> = ({
           <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800">
             <label className="text-xs font-bold text-slate-300 mb-2 flex items-center gap-1.5">
               <ClipboardPaste className="w-4 h-4 text-cyan-400" />
-              <span>افزودن دسته‌ای اسامی (هر اسم در یک خط یا با ویرگول):</span>
+              <span>افزودن دسته‌ای اسامی (هر شرکت‌کننده در یک سطر):</span>
             </label>
             <textarea
               rows={4}
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
-              placeholder="مثال:
-علی رضایی - 09121111111
-مریم حسینی
-نوید محمدی
-سارا ابراهیمی"
+              placeholder={`مثال:
+سید محمدرضا میرمحمدصادقی - 09121111111
+سارا کریمی-دهکردی ۰۹۱۲۲۲۲۲۲۲۲
+امیرحسین ابراهیمی فراهانی | 09123333333
+نیلوفر امینی راد`}
               className="w-full bg-slate-900 border border-slate-700/80 rounded-xl p-3 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 font-mono leading-relaxed"
             />
             <div className="flex items-center justify-between mt-2.5">
               <span className="text-[11px] text-slate-400">
-                می‌توانید لیست اکسل یا پیام‌رسان را کپی کرده و اینجا Paste کنید.
+                هر سطر یک نفر؛ شماره موبایل به طور هوشمند از سطر تشخیص داده شده و از نام جدا می‌شود.
               </span>
               <button
                 onClick={handleBulkAdd}
@@ -272,7 +265,7 @@ export const AddParticipantsModal: React.FC<AddParticipantsModalProps> = ({
                     </div>
                     <button
                       onClick={() => handleRemoveOne(p.id)}
-                      className="p-1 text-slate-500 hover:text-rose-400"
+                      className="p-1 text-slate-500 hover:text-rose-400 cursor-pointer"
                       title="حذف"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -288,7 +281,7 @@ export const AddParticipantsModal: React.FC<AddParticipantsModalProps> = ({
         <div className="p-4 border-t border-slate-800 bg-slate-900 flex items-center justify-end">
           <button
             onClick={onClose}
-            className="px-5 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20"
+            className="px-5 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white transition-all shadow-md shadow-cyan-600/20 cursor-pointer"
           >
             تایید و بازگشت به یارکشی
           </button>

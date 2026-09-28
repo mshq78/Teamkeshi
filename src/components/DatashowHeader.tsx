@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Maximize2, 
   Minimize2, 
@@ -14,9 +14,17 @@ import {
   Sun,
   Moon,
   Plus,
-  Minus
+  Minus,
+  HardDrive,
+  Download,
+  Upload,
+  AlertTriangle,
+  ChevronDown,
+  Trophy
 } from 'lucide-react';
 import { AppMode, DisplaySize, DisplayTheme } from '../types';
+import { AppState } from '../store/state';
+import { validateAndSanitizeBackup } from '../utils/backup';
 import { sound } from '../utils/sound';
 import { toPersianDigits } from '../utils/persian';
 
@@ -35,6 +43,8 @@ interface DatashowHeaderProps {
   onOpenParticipantsModal: () => void;
   onAutoFillRemaining: () => void;
   onResetDraft: () => void;
+  onDownloadBackup: () => void;
+  onRestoreBackup: (state: AppState) => void;
 }
 
 export const DatashowHeader: React.FC<DatashowHeaderProps> = ({
@@ -52,10 +62,16 @@ export const DatashowHeader: React.FC<DatashowHeaderProps> = ({
   onOpenParticipantsModal,
   onAutoFillRemaining,
   onResetDraft,
+  onDownloadBackup,
+  onRestoreBackup,
 }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isSoundMuted, setIsSoundMuted] = useState(!sound.enabled);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isBackupMenuOpen, setIsBackupMenuOpen] = useState(false);
+  const [pendingRestore, setPendingRestore] = useState<AppState | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleFullscreen = () => {
     sound.playClick();
@@ -70,6 +86,33 @@ export const DatashowHeader: React.FC<DatashowHeaderProps> = ({
     sound.enabled = !sound.enabled;
     setIsSoundMuted(!sound.enabled);
     if (sound.enabled) sound.playClick();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed: unknown = JSON.parse(text);
+        const validState = validateAndSanitizeBackup(parsed);
+        if (validState) {
+          setPendingRestore(validState);
+          setRestoreError(null);
+        } else {
+          setRestoreError('فایل انتخاب‌شده نامعتبر است یا ساختار سازگار با این سامانه را ندارد.');
+        }
+      } catch {
+        setRestoreError('خطا در خواندن فایل. لطفاً مطمئن شوید فایل دارای فرمت صحیح JSON است.');
+      }
+    };
+    reader.onerror = () => {
+      setRestoreError('خطا در بارگذاری فایل از دیسک.');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const isProjectorMode = displaySize !== 'normal';
@@ -135,6 +178,34 @@ export const DatashowHeader: React.FC<DatashowHeaderProps> = ({
             >
               <Rocket className="w-3.5 h-3.5" />
               <span>🚀 پیشرفته (با تایمر و لاگ)</span>
+            </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                onModeChange('scoring');
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                mode === 'scoring'
+                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25 font-black'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Trophy className="w-3.5 h-3.5" />
+              <span>🏆 امتیازدهی</span>
+            </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                onModeChange('stage');
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                mode === 'stage'
+                  ? 'bg-rose-500 text-white shadow-md shadow-rose-500/25 font-black'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>📺 استیج و پرده</span>
             </button>
           </div>
         </div>
@@ -295,20 +366,145 @@ export const DatashowHeader: React.FC<DatashowHeaderProps> = ({
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
+          {/* Backup dropdown menu */}
+          <div className="relative">
+            <button
+              onClick={() => setIsBackupMenuOpen(!isBackupMenuOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 transition-colors cursor-pointer"
+              title="پشتیبان‌گیری و بازیابی داده‌ها"
+            >
+              <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">پشتیبان</span>
+              <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isBackupMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isBackupMenuOpen && (
+              <div 
+                className="absolute left-0 mt-1.5 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-1 z-50 text-right animate-in fade-in zoom-in-95 duration-100"
+                onClick={() => setIsBackupMenuOpen(false)}
+              >
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onDownloadBackup();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>دانلود فایل پشتیبان</span>
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-200 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 text-amber-400" />
+                  <span>بازیابی از فایل</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Hidden File Input for Backup Restore */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+
           {/* Reset button */}
           <button
             onClick={() => {
               sound.playClick();
               setShowResetConfirm(true);
             }}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-950/40 border border-slate-700 hover:border-rose-700/50 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-600/70 text-slate-300 hover:text-rose-300 transition-colors text-xs font-bold cursor-pointer"
             title="ریست و بازگشت همه به سالن"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-4 h-4 text-rose-400" />
+            <span className="hidden sm:inline">ریست یارکشی</span>
           </button>
         </div>
 
       </div>
+
+      {/* In-App Confirmation Modal for Restoring Backup */}
+      {pendingRestore && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-md w-full shadow-2xl text-right">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
+                <Upload className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">بازیابی اطلاعات از فایل پشتیبان</h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  آیا از جایگزینی داده‌ها با این فایل اطمینان دارید؟ تمامی اسامی و تیم‌های فعلی با اطلاعات فایل جایگزین خواهند شد.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs space-y-1.5 mb-4">
+              <div className="flex justify-between text-slate-300">
+                <span>تعداد شرکت‌کنندگان فایل:</span>
+                <strong className="text-white font-mono">{toPersianDigits(pendingRestore.participants.length)} نفر</strong>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>تعداد تیم‌ها:</span>
+                <strong className="text-white font-mono">{toPersianDigits(pendingRestore.teams.length)} تیم</strong>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setPendingRestore(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-750 text-slate-300 transition-colors cursor-pointer"
+              >
+                انصراف
+              </button>
+              <button
+                onClick={() => {
+                  sound.playFanfare();
+                  onRestoreBackup(pendingRestore);
+                  setPendingRestore(null);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+              >
+                بله، بازیابی کن
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* In-App Error Dialog for Corrupt/Invalid Backup File */}
+      {restoreError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-rose-700/80 rounded-2xl p-5 max-w-md w-full shadow-2xl text-right">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 flex-shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-white">خطا در بازیابی فایل پشتیبان</h3>
+                <p className="text-xs text-rose-300 mt-1 leading-relaxed">{restoreError}</p>
+              </div>
+            </div>
+            <div className="flex justify-end pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setRestoreError(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white transition-colors cursor-pointer"
+              >
+                متوجه شدم
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* In-App Confirmation Modal for Reset Draft */}
       {showResetConfirm && (
