@@ -1,205 +1,176 @@
-import { Player, Team, GamePreset } from '../types';
+import { BootcampTeam, Participant } from '../types';
 
 export const TEAM_COLOR_PALETTES = [
   {
     id: 'team-1',
-    name: 'تیم بنفش (شاهین)',
-    color: '#a855f7',
-    bgGradient: 'from-purple-950 via-slate-900 to-slate-950',
-    borderColor: 'border-purple-400/80 shadow-purple-500/20',
-    textColor: 'text-purple-300',
-    badgeBg: 'bg-purple-600 text-white font-black',
-    iconName: 'Zap',
-    slogan: 'سرعت و تمرکز',
+    color: '#06b6d4', // cyan-500
+    badgeBg: 'bg-cyan-500 text-slate-950 font-black',
+    borderColor: 'border-cyan-400 shadow-cyan-500/20',
+    textColor: 'text-cyan-400',
+    defaultName: 'تیم کوانتوم',
+    defaultTable: 'میز ۱',
   },
   {
     id: 'team-2',
-    name: 'تیم آبی فیروزه‌ای (اقیانوس)',
-    color: '#06b6d4',
-    bgGradient: 'from-cyan-950 via-slate-900 to-slate-950',
-    borderColor: 'border-cyan-400/80 shadow-cyan-500/20',
-    textColor: 'text-cyan-300',
-    badgeBg: 'bg-cyan-600 text-white font-black',
-    iconName: 'Waves',
-    slogan: 'هماهنگی و جریان',
+    color: '#eab308', // yellow-500
+    badgeBg: 'bg-yellow-400 text-slate-950 font-black',
+    borderColor: 'border-yellow-400 shadow-yellow-500/20',
+    textColor: 'text-yellow-400',
+    defaultName: 'تیم سایبر',
+    defaultTable: 'میز ۲',
   },
   {
     id: 'team-3',
-    name: 'تیم قرمز آتشین (اژدها)',
-    color: '#f43f5e',
-    bgGradient: 'from-rose-950 via-slate-900 to-slate-950',
-    borderColor: 'border-rose-400/80 shadow-rose-500/20',
-    textColor: 'text-rose-300',
-    badgeBg: 'bg-rose-600 text-white font-black',
-    iconName: 'Flame',
-    slogan: 'شور و قدرت پیروزی',
+    color: '#10b981', // emerald-500
+    badgeBg: 'bg-emerald-500 text-slate-950 font-black',
+    borderColor: 'border-emerald-400 shadow-emerald-500/20',
+    textColor: 'text-emerald-400',
+    defaultName: 'تیم نکسوس',
+    defaultTable: 'میز ۳',
   },
   {
     id: 'team-4',
-    name: 'تیم طلایی درخشان (خورشید)',
-    color: '#eab308',
-    bgGradient: 'from-amber-950 via-slate-900 to-slate-950',
-    borderColor: 'border-yellow-400/80 shadow-yellow-500/20',
-    textColor: 'text-yellow-300',
-    badgeBg: 'bg-amber-500 text-slate-950 font-black',
-    iconName: 'Crown',
-    slogan: 'تاکتیک و درخشش',
+    color: '#f43f5e', // rose-500
+    badgeBg: 'bg-rose-500 text-white font-black',
+    borderColor: 'border-rose-400 shadow-rose-500/20',
+    textColor: 'text-rose-400',
+    defaultName: 'تیم فونیکس',
+    defaultTable: 'میز ۴',
   },
   {
     id: 'team-5',
-    name: 'تیم سبز زمرد (سپر)',
-    color: '#10b981',
-    bgGradient: 'from-emerald-950 via-slate-900 to-slate-950',
-    borderColor: 'border-emerald-400/80 shadow-emerald-500/20',
-    textColor: 'text-emerald-300',
-    badgeBg: 'bg-emerald-600 text-white font-black',
-    iconName: 'Shield',
-    slogan: 'سرسخت و نفوذناپذیر',
+    color: '#a855f7', // purple-500
+    badgeBg: 'bg-purple-500 text-white font-black',
+    borderColor: 'border-purple-400 shadow-purple-500/20',
+    textColor: 'text-purple-400',
+    defaultName: 'تیم آپولو',
+    defaultTable: 'میز ۵',
   },
   {
     id: 'team-6',
-    name: 'تیم نارنجی شعله (ققنوس)',
-    color: '#f97316',
-    bgGradient: 'from-orange-950 via-slate-900 to-slate-950',
-    borderColor: 'border-orange-400/80 shadow-orange-500/20',
-    textColor: 'text-orange-300',
-    badgeBg: 'bg-orange-600 text-white font-black',
-    iconName: 'Sun',
-    slogan: 'انرژی بی‌پایان',
+    color: '#f97316', // orange-500
+    badgeBg: 'bg-orange-500 text-slate-950 font-black',
+    borderColor: 'border-orange-400 shadow-orange-500/20',
+    textColor: 'text-orange-400',
+    defaultName: 'تیم ماتریکس',
+    defaultTable: 'میز ۶',
   },
   {
     id: 'team-7',
-    name: 'تیم صورتی نئون (ستاره)',
-    color: '#ec4899',
-    bgGradient: 'from-pink-950 via-slate-900 to-slate-950',
-    borderColor: 'border-pink-400/80 shadow-pink-500/20',
-    textColor: 'text-pink-300',
-    badgeBg: 'bg-pink-600 text-white font-black',
-    iconName: 'Sparkles',
-    slogan: 'خلاقیت و جادو',
+    color: '#ec4899', // pink-500
+    badgeBg: 'bg-pink-500 text-white font-black',
+    borderColor: 'border-pink-400 shadow-pink-500/20',
+    textColor: 'text-pink-400',
+    defaultName: 'تیم سیناپس',
+    defaultTable: 'میز ۷',
   },
   {
     id: 'team-8',
-    name: 'تیم نقره‌ای فولادی (هدف)',
-    color: '#94a3b8',
-    bgGradient: 'from-slate-900 via-slate-950 to-black',
-    borderColor: 'border-slate-300/80 shadow-slate-500/20',
-    textColor: 'text-slate-200',
-    badgeBg: 'bg-slate-300 text-slate-950 font-black',
-    iconName: 'Target',
-    slogan: 'دقت بی‌نقص',
+    color: '#38bdf8', // sky-400
+    badgeBg: 'bg-sky-400 text-slate-950 font-black',
+    borderColor: 'border-sky-300 shadow-sky-500/20',
+    textColor: 'text-sky-300',
+    defaultName: 'تیم الگوریتم',
+    defaultTable: 'میز ۸',
   },
 ];
 
-export function createInitialTeams(count = 4, preset: GamePreset = 'general'): Team[] {
+export const BOOTCAMP_TEAM_NAMES = [
+  'کوانتوم',
+  'سایبر',
+  'نکسوس',
+  'فونیکس',
+  'آپولو',
+  'ماتریکس',
+  'سیناپس',
+  'الگوریتم',
+  'رادیکال',
+  'پرتو',
+  'هگزان',
+  'کیهان',
+  'آلفا',
+  'تنسور',
+  'پالس',
+  'وکتور',
+];
+
+export function createInitialBootcampTeams(count = 4): BootcampTeam[] {
   return Array.from({ length: count }, (_, idx) => {
     const palette = TEAM_COLOR_PALETTES[idx % TEAM_COLOR_PALETTES.length];
-    let customName = `تیم ${['اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ششم', 'هفتم', 'هشتم'][idx] || (idx + 1)}`;
-    
-    if (preset === 'food_chores') {
-      const choreNames = ['گروه آشپزی و ناهار', 'گروه خرید و آماده‌سازی', 'گروه شستشو و نظافت', 'گروه چای و پذیرایی', 'گروه میوه و دسر', 'گروه نظم و ساماندهی'];
-      customName = choreNames[idx] || `شیفت ${idx + 1}`;
-    }
-
     return {
       id: `team-${idx + 1}`,
-      name: customName,
+      name: palette.defaultName,
       color: palette.color,
-      bgGradient: palette.bgGradient,
+      badgeBg: palette.badgeBg,
       borderColor: palette.borderColor,
       textColor: palette.textColor,
-      badgeBg: palette.badgeBg,
-      iconName: palette.iconName,
+      tableNumber: palette.defaultTable,
+      leaderPhone: '',
       members: [],
       score: 0,
     };
   });
 }
 
-export const PRESET_PLAYER_PACKS: Record<string, { title: string; desc: string; players: string[] }> = {
-  football: {
-    title: '⚽ فوتبال و فوتسال',
-    desc: '۱۲ بازیکن با مهارت‌های متغیر برای بازی‌های دورهمی فوتبال',
-    players: [
-      'علی کریمی',
-      'مهدی طارمی',
-      'سردار آزمون',
-      'سامان قدوس',
-      'علیرضا بیرانوند',
-      'سید جلال',
-      'رامین رضاییان',
-      'وحید امیری',
-      'امید ابراهیمی',
-      'احسان حاج‌صفی',
-      'کریم انصاری‌فرد',
-      'امیر عابدزاده'
-    ]
-  },
-  friends: {
-    title: '🎉 جمع دوستانه و کافه',
-    desc: 'اسامی فارسی برای انواع بازی‌های فکری، پانتومیم و دورهمی',
-    players: [
-      'امیرحسین',
-      'فاطمه',
-      'محمد',
-      'سارا',
-      'نیما',
-      'مریم',
-      'سینا',
-      'نگین',
-      'رضا',
-      'کیانا',
-      'پارسا',
-      'هستی',
-      'آرش',
-      'مینا'
-    ]
-  },
-  chores: {
-    title: '🍽️ نوبت غذا و نظافت خانه / شرکت',
-    desc: 'تقسیم کار عادلانه آشپزی، خرید، نظافت و پذیرایی',
-    players: [
-      'حسین',
-      'نرگس',
-      'سعید',
-      'مهسا',
-      'کامران',
-      'پریا',
-      'آیدین',
-      'بهاره',
-      'سامان',
-      'رویا'
-    ]
-  },
-  mafia: {
-    title: '🕵️‍♂️ مافیا و شب‌های مافیا',
-    desc: 'تقسیم متوازن سایدها و بازیکنان با تجربه',
-    players: [
-      'امیرعلی (لیدر)',
-      'سهراب',
-      'نازنین',
-      'بهنام',
-      'روژین',
-      'داریوش',
-      'الناز',
-      'کیوان',
-      'فرناز',
-      'شایان'
-    ]
-  }
-};
-
-export const INITIAL_SAMPLE_PLAYERS: Player[] = [
-  { id: 'p1', name: 'علی رضایی', skill: 5, role: 'captain', isPresent: true },
-  { id: 'p2', name: 'محمد محمدی', skill: 4, role: 'captain', isPresent: true },
-  { id: 'p3', name: 'رضا حسینی', skill: 4, role: 'goalkeeper', isPresent: true },
-  { id: 'p4', name: 'امیر مرادی', skill: 3, role: 'goalkeeper', isPresent: true },
-  { id: 'p5', name: 'سارا کریمی', skill: 5, role: 'none', isPresent: true },
-  { id: 'p6', name: 'نیما امینی', skill: 4, role: 'none', isPresent: true },
-  { id: 'p7', name: 'مریم صالحی', skill: 3, role: 'none', isPresent: true },
-  { id: 'p8', name: 'سینا احمدی', skill: 4, role: 'none', isPresent: true },
-  { id: 'p9', name: 'نگین راد', skill: 3, role: 'none', isPresent: true },
-  { id: 'p10', name: 'پارسا کاظمی', skill: 2, role: 'none', isPresent: true },
-  { id: 'p11', name: 'کیانا افشار', skill: 4, role: 'none', isPresent: true },
-  { id: 'p12', name: 'آرش نوری', skill: 3, role: 'none', isPresent: true },
+export const SAMPLE_BOOTCAMP_PARTICIPANTS: Participant[] = [
+  { id: 'p1', name: 'سید محمدرضا میرمحمدصادقی', phone: '09121111111' },
+  { id: 'p2', name: 'فاطمه السادات حسینی نسب', phone: '09122222222' },
+  { id: 'p3', name: 'امیرحسین ابراهیمی فراهانی', phone: '09123333333' },
+  { id: 'p4', name: 'سارا کریمی دهکردی', phone: '09124444444' },
+  { id: 'p5', name: 'کیارش پارسا منش' },
+  { id: 'p6', name: 'نیلوفر امینی راد' },
+  { id: 'p7', name: 'پوریا شجاعی نژاد' },
+  { id: 'p8', name: 'زهرا کاظمی پور' },
+  { id: 'p9', name: 'علیرضا اسکندری فرد' },
+  { id: 'p10', name: 'هستی رحیمی صادق' },
+  { id: 'p11', name: 'دانیال فراهانی اصل' },
+  { id: 'p12', name: 'فرناز احمدی مطلق' },
+  { id: 'p13', name: 'مهرداد رستمی جاوید' },
+  { id: 'p14', name: 'یاسمن صادقی بروجردی' },
+  { id: 'p15', name: 'آرمین میرزایی نیا' },
+  { id: 'p16', name: 'نگین کریمی طاهری' },
+  { id: 'p17', name: 'محمدعلی شایان خلیلی' },
+  { id: 'p18', name: 'بهناز طاهری مقدم' },
+  { id: 'p19', name: 'میلاد مرادی باقرپور' },
+  { id: 'p20', name: 'روژین نوری انصاری' },
+  { id: 'p21', name: 'سینا انصاری فرد' },
+  { id: 'p22', name: 'دنیا صبوری کاشانی' },
+  { id: 'p23', name: 'عرفان نامدار حسینی' },
+  { id: 'p24', name: 'کیانا رفیعی شمس آبادی' },
 ];
+
+export const BOOTCAMP_PRESETS: Record<string, { title: string; subtitle: string; names: string[] }> = {
+  ai: {
+    title: '🤖 بوت‌کمپ هوش مصنوعی و پایتون',
+    subtitle: '۲۴ نفر شرکت‌کننده با تخصص‌های دیتا، یادگیری ماشین و برنامه‌نویسی',
+    names: [
+      'علی رضایی', 'مریم حسینی', 'نوید محمدی', 'سارا ابراهیمی',
+      'کیارش پارسا', 'نیلوفر امینی', 'پوریا شجاعی', 'زهرا کاظمی',
+      'امیرحسین کرمی', 'هستی رحیمی', 'دانیال فراهانی', 'فرناز احمدی',
+      'مهرداد رستمی', 'یاسمن صادقی', 'آرمین میرزایی', 'نگین کریمی',
+      'شایان خلیلی', 'بهناز طاهری', 'میلاد مرادی', 'روژین نوری',
+      'سینا انصاری', 'دنیا صبوری', 'عرفان نامدار', 'کیانا رفیعی',
+    ],
+  },
+  web: {
+    title: '💻 بوت‌کمپ فرانت‌اند و فول‌استک',
+    subtitle: '۲۰ نفر توسعه‌دهنده وب برای ساخت پروژه‌های نهایی تیمی',
+    names: [
+      'امیرعلی ناصری', 'مهسا کمالی', 'پیمان فرهمند', 'صبا جلالی',
+      'کامران حیدری', 'نیما فرزانه', 'تینا خسروی', 'بهرام دادخواه',
+      'غزاله نادری', 'آیدین صبور', 'الناز عباسی', 'سهیل غفاری',
+      'شقایق مهرابی', 'وحید دهقان', 'پردیس مهدوی', 'رضا باقری',
+      'فاطمه قنبری', 'بابک شریفی', 'پریا بهرامی', 'کیوان مختاری',
+    ],
+  },
+  product: {
+    title: '🎨 بوت‌کمپ طراحی محصول و استارتاپ',
+    subtitle: '۱۶ نفر برای هکاتون و چالش ساخت MVP در تیم‌های ۴ نفره',
+    names: [
+      'سهراب سپهری', 'رویا ملکی', 'سامان پاشا', 'طناز فراهانی',
+      'اردوان یوسفی', 'سیمین بهبهانی', 'فرهاد مجیدی', 'مونا صالحی',
+      'کسری امانی', 'لیدا شمس', 'همایون ارجمند', 'نسترن معتمد',
+      'پویان سلطانی', 'شیوا کرمانی', 'مازیار فرزان', 'سحر یگانه',
+    ],
+  },
+};

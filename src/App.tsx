@@ -1,490 +1,395 @@
 import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { Navbar } from './components/Navbar';
-import { PlayerSidebar } from './components/PlayerSidebar';
-import { TeamsGrid } from './components/TeamsGrid';
-import { SimpleModeView } from './components/SimpleModeView';
-import { BulkAddModal } from './components/BulkAddModal';
-import { RouletteModal } from './components/RouletteModal';
-import { CaptainDraftModal } from './components/CaptainDraftModal';
-import { ScoreboardTimer } from './components/ScoreboardTimer';
-import { TournamentBracketModal } from './components/TournamentBracketModal';
-import { ExportModal } from './components/ExportModal';
-
-import { Player, Team, GamePreset, AppMode } from './types';
 import { 
-  createInitialTeams, 
-  INITIAL_SAMPLE_PLAYERS, 
-  PRESET_PLAYER_PACKS 
+  AppMode, 
+  DisplaySize, 
+  DisplayTheme, 
+  Participant, 
+  BootcampTeam, 
+  DraftLogItem 
+} from './types';
+import { CheckCircle2 } from 'lucide-react';
+import { 
+  createInitialBootcampTeams, 
+  SAMPLE_BOOTCAMP_PARTICIPANTS,
+  TEAM_COLOR_PALETTES 
 } from './utils/defaultData';
-import { balanceTeamsBySkill, shuffleArray } from './utils/persian';
+import { shuffleArray } from './utils/persian';
 import { sound } from './utils/sound';
+import { DatashowHeader } from './components/DatashowHeader';
+import { SimpleDraftView } from './components/SimpleDraftView';
+import { AdvancedDashboard } from './components/AdvancedDashboard';
+import { SmsModal } from './components/SmsModal';
+import { AddParticipantsModal } from './components/AddParticipantsModal';
 
-const STORAGE_KEY_MODE = 'TEAM_APP_MODE_V2';
-const STORAGE_KEY_PLAYERS = 'TEAM_APP_PLAYERS_V2';
-const STORAGE_KEY_TEAMS = 'TEAM_APP_TEAMS_V2';
-const STORAGE_KEY_COUNT = 'TEAM_APP_COUNT_V2';
-const STORAGE_KEY_PRESET = 'TEAM_APP_PRESET_V2';
+const STORAGE_KEY_PARTICIPANTS = 'bootcamp_live_participants_v2';
+const STORAGE_KEY_TEAMS = 'bootcamp_live_teams_v2';
+const STORAGE_KEY_SETTINGS = 'bootcamp_live_settings_v2';
 
 export default function App() {
-  const [appMode, setAppMode] = useState<AppMode>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_MODE) as AppMode;
-    return saved || 'simple';
+  // Load initial state from LocalStorage or defaults
+  const [participants, setParticipants] = useState<Participant[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_PARTICIPANTS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return SAMPLE_BOOTCAMP_PARTICIPANTS;
   });
 
-  // Load Initial State from LocalStorage or Defaults
-  const [players, setPlayers] = useState<Player[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_PLAYERS);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return INITIAL_SAMPLE_PLAYERS;
-      }
-    }
-    return INITIAL_SAMPLE_PLAYERS;
+  const [teams, setTeams] = useState<BootcampTeam[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_TEAMS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return createInitialBootcampTeams(4);
   });
 
-  const [gamePreset, setGamePreset] = useState<GamePreset>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_PRESET) as GamePreset;
-    return saved || 'general';
-  });
-
-  const [teamCount, setTeamCount] = useState<number>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_COUNT);
-    return saved ? parseInt(saved, 10) : 4;
-  });
-
-  const [teams, setTeams] = useState<Team[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_TEAMS);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return createInitialTeams(8, 'general');
-      }
-    }
-    return createInitialTeams(8, 'general');
-  });
-
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [mode, setMode] = useState<AppMode>('simple');
+  const [displaySize, setDisplaySize] = useState<DisplaySize>('projector');
+  const [displayTheme, setDisplayTheme] = useState<DisplayTheme>('dark-neon');
+  const [draftLog, setDraftLog] = useState<DraftLogItem[]>([]);
 
   // Modals
-  const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
-  const [isRouletteOpen, setIsRouletteOpen] = useState(false);
-  const [isDraftOpen, setIsDraftOpen] = useState(false);
-  const [isTimerOpen, setIsTimerOpen] = useState(false);
-  const [isTournamentOpen, setIsTournamentOpen] = useState(false);
-  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedTeamForSms, setSelectedTeamForSms] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Sync to LocalStorage
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_MODE, appMode);
-  }, [appMode]);
+    try {
+      localStorage.setItem(STORAGE_KEY_PARTICIPANTS, JSON.stringify(participants));
+    } catch {}
+  }, [participants]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_PLAYERS, JSON.stringify(players));
-  }, [players]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_TEAMS, JSON.stringify(teams));
+    try {
+      localStorage.setItem(STORAGE_KEY_TEAMS, JSON.stringify(teams));
+    } catch {}
   }, [teams]);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_COUNT, teamCount.toString());
-  }, [teamCount]);
+  // Derived: All assigned participant IDs
+  const assignedParticipantIds = new Set<string>();
+  teams.forEach((t) => t.members.forEach((m) => assignedParticipantIds.add(m.id)));
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_PRESET, gamePreset);
-  }, [gamePreset]);
+  // Unassigned participants pool
+  const unassigned = participants.filter((p) => !assignedParticipantIds.has(p.id));
 
-  // Handle Preset Change
-  const handlePresetChange = (preset: GamePreset) => {
-    setGamePreset(preset);
-    const updatedInitialTeams = createInitialTeams(8, preset);
-    // Keep members if already assigned
-    setTeams((prevTeams) =>
-      updatedInitialTeams.map((newT, idx) => ({
-        ...newT,
-        members: prevTeams[idx]?.members || [],
-        score: prevTeams[idx]?.score || 0,
-      }))
-    );
-  };
-
-  // Player Handlers
-  const handleAddPlayer = (player: Player) => {
-    setPlayers((prev) => [player, ...prev]);
-  };
-
-  const handleAddMultiplePlayers = (newPlayers: Player[]) => {
-    setPlayers((prev) => [...newPlayers, ...prev]);
-  };
-
-  const handleUpdatePlayer = (id: string, updates: Partial<Player>) => {
-    setPlayers((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
-    );
-    // Also check if player is in any team
-    setTeams((prev) =>
-      prev.map((t) => ({
-        ...t,
-        members: t.members.map((m) => (m.id === id ? { ...m, ...updates } : m)),
-      }))
-    );
-  };
-
-  const handleRemovePlayer = (id: string) => {
-    setPlayers((prev) => prev.filter((p) => p.id !== id));
-    setTeams((prev) =>
-      prev.map((t) => ({
-        ...t,
-        members: t.members.filter((m) => m.id !== id),
-      }))
-    );
-  };
-
-  const handleClearAll = () => {
-    if (!window.confirm('آیا مطمئن هستید که می‌خواهید تمام بازیکنان حذف شوند؟')) return;
-    sound.playClick();
-    setPlayers([]);
-    setTeams((prev) => prev.map((t) => ({ ...t, members: [], score: 0 })));
-  };
-
-  // Reset all team members back to free players
-  const handleResetAllToFree = () => {
-    if (!window.confirm('آیا می‌خواهید همه بازیکنان از تیم‌ها خارج شده و به لیست آزاد برگردند؟')) return;
-    sound.playClick();
-    const assignedPlayers = teams.flatMap((t) => t.members);
-    // Merge back uniquely
-    const existingIds = new Set(players.map((p) => p.id));
-    const toAdd = assignedPlayers.filter((p) => !existingIds.has(p.id));
-
-    setPlayers((prev) => [...prev, ...toAdd]);
-    setTeams((prev) => prev.map((t) => ({ ...t, members: [] })));
-  };
-
-  // Load Preset Pack
-  const handleLoadPack = (packKey: string) => {
-    const pack = PRESET_PLAYER_PACKS[packKey];
-    if (!pack) return;
-    const newItems: Player[] = pack.players.map((name, i) => ({
-      id: `pack-${packKey}-${i}-${Date.now()}`,
-      name,
-      skill: (Math.floor(Math.random() * 3) + 3) as 3 | 4 | 5,
-      role: i === 0 || i === 1 ? 'captain' : i === 2 || i === 3 ? 'goalkeeper' : 'none',
-      isPresent: true,
-    }));
-    setPlayers(newItems);
-    // Clear current teams
-    setTeams((prev) => prev.map((t) => ({ ...t, members: [], score: 0 })));
-  };
-
-  // Import TXT File
-  const handleImportTxt = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const text = evt.target?.result as string;
-      if (!text) return;
-      const lines = text
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0);
-
-      lines.sort((a, b) => a.localeCompare(b, 'fa', { sensitivity: 'base' }));
-
-      const loadedPlayers: Player[] = lines.map((name, idx) => ({
-        id: `txt-${Date.now()}-${idx}`,
-        name,
-        skill: 3,
-        role: 'none',
-        isPresent: true,
-      }));
-
-      setPlayers(loadedPlayers);
-      setTeams((prev) => prev.map((t) => ({ ...t, members: [], score: 0 })));
-      sound.playFanfare();
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
-  // Move member between free pool and teams or between teams
-  const handleMoveMember = (playerId: string, targetTeamId: string | null) => {
-    // Find player in free list or in teams
-    let movingPlayer: Player | undefined = players.find((p) => p.id === playerId);
-    if (!movingPlayer) {
-      for (const t of teams) {
-        movingPlayer = t.members.find((m) => m.id === playerId);
-        if (movingPlayer) break;
-      }
-    }
-
-    if (!movingPlayer) return;
-
-    // Remove from free list
-    setPlayers((prev) => prev.filter((p) => p.id !== playerId));
-
-    // Remove from all teams
-    let updatedTeams = teams.map((t) => ({
-      ...t,
-      members: t.members.filter((m) => m.id !== playerId),
-    }));
-
-    // If target is a team, add to that team
-    if (targetTeamId) {
-      updatedTeams = updatedTeams.map((t) => {
-        if (t.id === targetTeamId) {
-          return { ...t, members: [...t.members, movingPlayer!] };
-        }
-        return t;
-      });
-    } else {
-      // Returned to free list
-      setPlayers((prev) => [movingPlayer!, ...prev]);
-    }
-
-    setTeams(updatedTeams);
-  };
-
-  // Clear single team members
-  const handleClearTeam = (teamId: string) => {
-    const targetTeam = teams.find((t) => t.id === teamId);
-    if (!targetTeam || targetTeam.members.length === 0) return;
-
-    const membersToReturn = targetTeam.members;
-    setPlayers((prev) => [...prev, ...membersToReturn]);
-    setTeams((prev) =>
-      prev.map((t) => (t.id === teamId ? { ...t, members: [] } : t))
-    );
-  };
-
-  // Draw Mode 1: Pure Random Draw
-  const handleRandomDraw = () => {
-    const active = players.filter((p) => p.isPresent);
-    if (active.length < 2) return;
-
-    const shuffled = shuffleArray(active);
-    const activeTeamsCount = teamCount;
-
-    const newTeamMembers: Player[][] = Array.from({ length: activeTeamsCount }, () => []);
-
-    shuffled.forEach((player, idx) => {
-      newTeamMembers[idx % activeTeamsCount].push(player);
+  // Check if draft just completed to fire celebratory confetti
+  const triggerCelebration = () => {
+    sound.playFanfare();
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
     });
-
-    setTeams((prev) =>
-      prev.map((team, idx) => {
-        if (idx < activeTeamsCount) {
-          return { ...team, members: newTeamMembers[idx] || [] };
-        }
-        return { ...team, members: [] };
-      })
-    );
-
-    // Keep only absent players in free list
-    setPlayers((prev) => prev.filter((p) => !p.isPresent));
-
-    // Confetti celebration
-    try {
+    setTimeout(() => {
       confetti({
-        particleCount: 90,
-        spread: 70,
-        origin: { y: 0.6 },
+        particleCount: 60,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
       });
-    } catch {
-      // ignore
-    }
+      confetti({
+        particleCount: 60,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+      });
+    }, 250);
   };
 
-  // Draw Mode 2: Balanced Draw (Fair Play by Skill Stars & Roles)
-  const handleBalancedDraw = () => {
-    const active = players.filter((p) => p.isPresent);
-    if (active.length < 2) return;
+  // Assign participant to a team
+  const handleAssignToTeam = (participantId: string, teamId: string) => {
+    const participant = participants.find((p) => p.id === participantId);
+    const targetTeam = teams.find((t) => t.id === teamId);
+    if (!participant || !targetTeam) return;
 
-    const balancedGroups = balanceTeamsBySkill(active, teamCount);
+    // Check if already in target team
+    if (targetTeam.members.some((m) => m.id === participantId)) return;
 
-    setTeams((prev) =>
-      prev.map((team, idx) => {
-        if (idx < teamCount) {
-          return { ...team, members: balancedGroups[idx] || [] };
-        }
-        return { ...team, members: [] };
-      })
-    );
-
-    // Keep only absent players in free list
-    setPlayers((prev) => prev.filter((p) => !p.isPresent));
-
-    try {
-      confetti({
-        particleCount: 110,
-        spread: 80,
-        origin: { y: 0.6 },
-      });
-    } catch {
-      // ignore
-    }
-  };
-
-  // Roulette result finish
-  const handleFinishRoulette = (assignments: { playerId: string; teamId: string }[]) => {
-    const assignedPlayerIds = new Set(assignments.map((a) => a.playerId));
-    const allKnownPlayers = [...players, ...teams.flatMap((t) => t.members)];
-
+    // Remove from any current team
     const updatedTeams = teams.map((team) => {
-      const assignedToThisTeam = assignments
-        .filter((a) => a.teamId === team.id)
-        .map((a) => allKnownPlayers.find((p) => p.id === a.playerId))
-        .filter((p): p is Player => Boolean(p));
-
+      const filteredMembers = team.members.filter((m) => m.id !== participantId);
+      if (team.id === teamId) {
+        return {
+          ...team,
+          members: [...filteredMembers, participant],
+        };
+      }
       return {
         ...team,
-        members: assignedToThisTeam,
+        members: filteredMembers,
       };
     });
 
     setTeams(updatedTeams);
-    setPlayers((prev) => prev.filter((p) => !assignedPlayerIds.has(p.id)));
+
+    // Toast feedback
+    const previousTeam = teams.find((t) => t.members.some((m) => m.id === participantId));
+    if (previousTeam) {
+      showToast(`${participant.name} از «${previousTeam.name}» به «${targetTeam.name}» منتقل شد`);
+    } else {
+      showToast(`${participant.name} به «${targetTeam.name}» ملحق شد`);
+    }
+
+    // Draft log item
+    const isLeader = targetTeam.members.length === 0;
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    setDraftLog((prev) => [
+      {
+        id: `log-${Date.now()}`,
+        timestamp: timeStr,
+        participantName: participant.name,
+        teamName: targetTeam.name,
+        teamColor: targetTeam.color,
+        isLeader,
+      },
+      ...prev,
+    ]);
+
+    // Check if that was the last participant
+    const remainingAfterThis = unassigned.filter((p) => p.id !== participantId).length;
+    if (remainingAfterThis === 0) {
+      triggerCelebration();
+    }
   };
 
-  // Draft apply
-  const handleApplyDraft = (updatedTeams: Team[]) => {
-    const assignedIds = new Set(updatedTeams.flatMap((t) => t.members.map((m) => m.id)));
-    setTeams(updatedTeams);
-    setPlayers((prev) => prev.filter((p) => !assignedIds.has(p.id)));
+  // Remove member from team back to unassigned
+  const handleRemoveMember = (teamId: string, participantId: string) => {
+    const participant = participants.find((p) => p.id === participantId);
+    setTeams((prevTeams) =>
+      prevTeams.map((team) => {
+        if (team.id === teamId) {
+          return {
+            ...team,
+            members: team.members.filter((m) => m.id !== participantId),
+          };
+        }
+        return team;
+      })
+    );
+    if (participant) {
+      showToast(`${participant.name} به سالن بازگشت`);
+    }
   };
 
-  // Team score update
-  const handleUpdateTeamScore = (teamId: string, newScore: number) => {
-    setTeams((prev) =>
-      prev.map((t) => (t.id === teamId ? { ...t, score: newScore } : t))
+  // Return member from any team directly to hall (e.g. via drop on roster)
+  const handleReturnToHall = (participantId: string) => {
+    const participant = participants.find((p) => p.id === participantId);
+    setTeams((prevTeams) =>
+      prevTeams.map((team) => ({
+        ...team,
+        members: team.members.filter((m) => m.id !== participantId),
+      }))
+    );
+    if (participant) {
+      showToast(`${participant.name} به سالن بازگردانده شد`);
+    }
+  };
+
+  // Promote a member to leader (index 0)
+  const handlePromoteToLeader = (teamId: string, participantId: string) => {
+    setTeams((prevTeams) =>
+      prevTeams.map((team) => {
+        if (team.id === teamId) {
+          const memberIndex = team.members.findIndex((m) => m.id === participantId);
+          if (memberIndex <= 0) return team;
+          const member = team.members[memberIndex];
+          const remaining = team.members.filter((m) => m.id !== participantId);
+          return {
+            ...team,
+            members: [member, ...remaining],
+          };
+        }
+        return team;
+      })
     );
   };
 
-  const handleUpdateTeam = (teamId: string, updates: Partial<Team>) => {
+  // Auto-fill remaining unassigned members randomly into teams
+  const handleAutoFillRemaining = () => {
+    if (unassigned.length === 0 || teams.length === 0) return;
+
+    const shuffled = shuffleArray(unassigned);
+    const newTeams = teams.map((t) => ({ ...t, members: [...t.members] }));
+
+    // Greedy round-robin into teams with lowest member count
+    shuffled.forEach((participant) => {
+      // Find team with minimum members
+      let minTeamIndex = 0;
+      let minCount = Infinity;
+      for (let i = 0; i < newTeams.length; i++) {
+        if (newTeams[i].members.length < minCount) {
+          minCount = newTeams[i].members.length;
+          minTeamIndex = i;
+        }
+      }
+      newTeams[minTeamIndex].members.push(participant);
+    });
+
+    setTeams(newTeams);
+    triggerCelebration();
+  };
+
+  // Update team data (name, color, phone)
+  const handleUpdateTeam = (updatedTeam: BootcampTeam) => {
+    setTeams((prev) => prev.map((t) => (t.id === updatedTeam.id ? updatedTeam : t)));
+  };
+
+  // Update leader phone from SMS modal
+  const handleUpdateTeamPhone = (teamId: string, phone: string) => {
     setTeams((prev) =>
-      prev.map((t) => (t.id === teamId ? { ...t, ...updates } : t))
+      prev.map((t) => (t.id === teamId ? { ...t, leaderPhone: phone } : t))
     );
+  };
+
+  // Change team count dynamically (2 to 8)
+  const handleTeamsCountChange = (newCount: number) => {
+    if (newCount < 2 || newCount > 8) return;
+
+    if (newCount > teams.length) {
+      // Add teams
+      const additional: BootcampTeam[] = [];
+      for (let i = teams.length; i < newCount; i++) {
+        const palette = TEAM_COLOR_PALETTES[i % TEAM_COLOR_PALETTES.length];
+        additional.push({
+          id: `team-${i + 1}`,
+          name: palette.defaultName,
+          color: palette.color,
+          badgeBg: palette.badgeBg,
+          borderColor: palette.borderColor,
+          textColor: palette.textColor,
+          tableNumber: palette.defaultTable,
+          leaderPhone: '',
+          members: [],
+          score: 0,
+        });
+      }
+      setTeams([...teams, ...additional]);
+    } else if (newCount < teams.length) {
+      // Remove teams, returning their members to unassigned
+      const kept = teams.slice(0, newCount);
+      setTeams(kept);
+    }
+  };
+
+  // Reset only the draft placements (everyone back to unassigned)
+  const handleResetDraft = () => {
+    setTeams((prev) => prev.map((t) => ({ ...t, members: [] })));
+    setDraftLog([]);
+    showToast('یارکشی با موفقیت ریست شد و تمامی افراد به سالن بازگشتند');
+  };
+
+  // Reset everything (clear all participants)
+  const handleResetEverything = () => {
+    setParticipants([]);
+    setTeams(createInitialBootcampTeams(4));
+    setDraftLog([]);
+    showToast('لیست اسامی پاکسازی شد');
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Navigation */}
-      <Navbar
-        appMode={appMode}
-        setAppMode={setAppMode}
-        gamePreset={gamePreset}
-        setGamePreset={handlePresetChange}
-        onOpenRoulette={() => setIsRouletteOpen(true)}
-        onOpenDraft={() => setIsDraftOpen(true)}
-        onOpenTimer={() => setIsTimerOpen(true)}
-        onOpenTournament={() => setIsTournamentOpen(true)}
-        onOpenExport={() => setIsExportOpen(true)}
-        onResetAll={handleResetAllToFree}
-        soundEnabled={soundEnabled}
-        setSoundEnabled={setSoundEnabled}
+    <div className={`min-h-screen flex flex-col font-['Vazirmatn',sans-serif] selection:bg-cyan-500 selection:text-slate-950 transition-colors ${
+      displayTheme === 'dark-neon'
+        ? 'bg-slate-950 text-slate-100'
+        : 'bg-slate-100 text-slate-900'
+    }`}>
+      
+      {/* Top Navigation & Projector Controls */}
+      <DatashowHeader
+        mode={mode}
+        onModeChange={setMode}
+        displaySize={displaySize}
+        onDisplaySizeChange={setDisplaySize}
+        displayTheme={displayTheme}
+        onDisplayThemeChange={setDisplayTheme}
+        teamsCount={teams.length}
+        onTeamsCountChange={handleTeamsCountChange}
+        unassignedCount={unassigned.length}
+        totalParticipants={participants.length}
+        onOpenSmsModal={() => {
+          setSelectedTeamForSms(null);
+          setIsSmsModalOpen(true);
+        }}
+        onOpenParticipantsModal={() => setIsAddModalOpen(true)}
+        onAutoFillRemaining={handleAutoFillRemaining}
+        onResetDraft={handleResetDraft}
       />
 
-      {/* Main Workspace */}
-      <main className="flex-1 w-full max-w-7xl mx-auto p-3 sm:p-5 flex flex-col">
-        {appMode === 'simple' ? (
-          /* Simple & Fast Mode - Optimized for Projector Screen */
-          <SimpleModeView
-            players={players}
+      {/* Main View Area: Either Simple Draft or Advanced Mode */}
+      <main className="flex-1 flex flex-col min-h-0">
+        {mode === 'simple' ? (
+          <SimpleDraftView
+            unassigned={unassigned}
             teams={teams}
-            teamCount={teamCount}
-            onTeamCountChange={(cnt) => setTeamCount(cnt)}
-            onAddPlayer={handleAddPlayer}
-            onRemovePlayer={handleRemovePlayer}
-            onClearAllPlayers={handleClearAll}
-            onResetToFree={handleResetAllToFree}
-            onMoveMember={handleMoveMember}
-            onRandomDraw={handleRandomDraw}
-            onImportTxt={handleImportTxt}
-            onOpenBulkAdd={() => setIsBulkAddOpen(true)}
+            displaySize={displaySize}
+            onAssignToTeam={handleAssignToTeam}
+            onUpdateTeam={handleUpdateTeam}
+            onRemoveMember={handleRemoveMember}
+            onPromoteToLeader={handlePromoteToLeader}
+            onOpenAddModal={() => setIsAddModalOpen(true)}
+            onOpenSmsForTeam={(team) => {
+              setSelectedTeamForSms(team.id);
+              setIsSmsModalOpen(true);
+            }}
+            onAutoFillRemaining={handleAutoFillRemaining}
+            onReturnToHall={handleReturnToHall}
           />
         ) : (
-          /* Advanced Pro Mode */
-          <div className="w-full flex flex-col lg:flex-row gap-6 items-start">
-            {/* Sidebar: Players Management & Quick Draw */}
-            <PlayerSidebar
-              players={players}
-              onAddPlayer={handleAddPlayer}
-              onUpdatePlayer={handleUpdatePlayer}
-              onRemovePlayer={handleRemovePlayer}
-              onClearAll={handleClearAll}
-              onOpenBulkAdd={() => setIsBulkAddOpen(true)}
-              onRandomDraw={handleRandomDraw}
-              onBalancedDraw={handleBalancedDraw}
-              onLoadPack={handleLoadPack}
-              onImportTxt={handleImportTxt}
-            />
-
-            {/* Center/Main: Interactive Teams Grid */}
-            <TeamsGrid
-              teams={teams}
-              teamCount={teamCount}
-              onTeamCountChange={(cnt) => setTeamCount(cnt)}
-              onUpdateTeam={handleUpdateTeam}
-              onMoveMember={handleMoveMember}
-              onClearTeam={handleClearTeam}
-            />
-          </div>
+          <AdvancedDashboard
+            unassigned={unassigned}
+            teams={teams}
+            displaySize={displaySize}
+            draftLog={draftLog}
+            onAssignToTeam={handleAssignToTeam}
+            onUpdateTeam={handleUpdateTeam}
+            onRemoveMember={handleRemoveMember}
+            onPromoteToLeader={handlePromoteToLeader}
+            onOpenAddModal={() => setIsAddModalOpen(true)}
+            onOpenSmsForTeam={(team) => {
+              setSelectedTeamForSms(team.id);
+              setIsSmsModalOpen(true);
+            }}
+            onAutoFillRemaining={handleAutoFillRemaining}
+            onReturnToHall={handleReturnToHall}
+          />
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="mt-auto border-t-2 border-slate-900 bg-slate-950 py-3 px-6 text-center text-xs font-semibold text-slate-400">
-        سامانه هوشمند یارکشی بازی • نسخه ساده ⚡ و نسخه پیشرفته 🚀 • سازگار با پروژکتور و پرده نمایش
-      </footer>
-
-      {/* Modals */}
-      <BulkAddModal
-        isOpen={isBulkAddOpen}
-        onClose={() => setIsBulkAddOpen(false)}
-        onAddPlayers={handleAddMultiplePlayers}
+      {/* SMS Generator Modal */}
+      <SmsModal
+        isOpen={isSmsModalOpen}
+        onClose={() => setIsSmsModalOpen(false)}
+        teams={teams}
+        onUpdateTeamPhone={handleUpdateTeamPhone}
+        selectedTeamId={selectedTeamForSms}
       />
 
-      <RouletteModal
-        isOpen={isRouletteOpen}
-        onClose={() => setIsRouletteOpen(false)}
-        availablePlayers={players}
-        teams={teams.slice(0, teamCount)}
-        onFinishRoulette={handleFinishRoulette}
+      {/* Participant Manager & Bulk Add Modal */}
+      <AddParticipantsModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        participants={participants}
+        onSetParticipants={setParticipants}
+        onResetEverything={handleResetEverything}
       />
 
-      <CaptainDraftModal
-        isOpen={isDraftOpen}
-        onClose={() => setIsDraftOpen(false)}
-        availablePlayers={players}
-        teams={teams.slice(0, teamCount)}
-        onApplyDraft={handleApplyDraft}
-      />
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-cyan-500/80 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs sm:text-sm font-bold backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
-      <ScoreboardTimer
-        isOpen={isTimerOpen}
-        onClose={() => setIsTimerOpen(false)}
-        teams={teams.slice(0, teamCount)}
-        onUpdateTeamScore={handleUpdateTeamScore}
-      />
-
-      <TournamentBracketModal
-        isOpen={isTournamentOpen}
-        onClose={() => setIsTournamentOpen(false)}
-        teams={teams.slice(0, teamCount)}
-      />
-
-      <ExportModal
-        isOpen={isExportOpen}
-        onClose={() => setIsExportOpen(false)}
-        teams={teams.slice(0, teamCount)}
-        unassignedPlayers={players}
-      />
     </div>
   );
 }
-

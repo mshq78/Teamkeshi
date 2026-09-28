@@ -1,4 +1,4 @@
-import { Player, Team } from '../types';
+import { BootcampTeam, Participant } from '../types';
 
 export function toPersianDigits(num: number | string | undefined | null): string {
   if (num === undefined || num === null) return '';
@@ -16,116 +16,87 @@ export function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
- * Greedy balanced partition of players into N teams according to their skill level
- * Also respects captain / goalkeeper distribution if possible
+ * Calculates SMS parts according to standard Persian Unicode telecom standards:
+ * - 1 part: up to 70 characters
+ * - 2 parts: 71 to 134 characters (67 chars/part)
+ * - 3 parts: 135 to 201 characters
+ * - N parts: ceil(len / 67) for len > 70
  */
-export function balanceTeamsBySkill(activePlayers: Player[], teamCount: number): Player[][] {
-  const teams: Player[][] = Array.from({ length: teamCount }, () => []);
-  const teamSkillSums: number[] = Array.from({ length: teamCount }, () => 0);
-
-  // Separate captains, goalkeepers/special roles, and regular players
-  const captains = activePlayers.filter(p => p.role === 'captain');
-  const goalkeepers = activePlayers.filter(p => p.role === 'goalkeeper');
-  const others = activePlayers.filter(p => p.role !== 'captain' && p.role !== 'goalkeeper');
-
-  // Distribute captains first (randomized among teams)
-  const shuffledCaptains = shuffleArray(captains);
-  shuffledCaptains.forEach((cap, index) => {
-    const teamIdx = index % teamCount;
-    teams[teamIdx].push(cap);
-    teamSkillSums[teamIdx] += cap.skill;
-  });
-
-  // Distribute goalkeepers
-  const shuffledGK = shuffleArray(goalkeepers);
-  shuffledGK.forEach((gk) => {
-    // Pick team with lowest player count or lowest skill
-    let bestTeamIdx = 0;
-    let minScore = Infinity;
-    for (let i = 0; i < teamCount; i++) {
-      const hasGK = teams[i].some(p => p.role === 'goalkeeper');
-      const score = (hasGK ? 1000 : 0) + teamSkillSums[i];
-      if (score < minScore) {
-        minScore = score;
-        bestTeamIdx = i;
-      }
-    }
-    teams[bestTeamIdx].push(gk);
-    teamSkillSums[bestTeamIdx] += gk.skill;
-  });
-
-  // Sort other players by skill descending with slight random jitter to prevent deterministic results
-  const sortedOthers = [...others].sort((a, b) => {
-    if (b.skill !== a.skill) return b.skill - a.skill;
-    return Math.random() - 0.5;
-  });
-
-  // Distribute remaining players to team with lowest current total skill sum
-  for (const player of sortedOthers) {
-    // Find team with minimum total skill that hasn't exceeded average capacity too much
-    let minTeamIdx = 0;
-    let minSkill = Infinity;
-
-    // Find min player count to maintain size balance
-    const minSize = Math.min(...teams.map(t => t.length));
-
-    for (let i = 0; i < teamCount; i++) {
-      // Prioritize teams that have fewer members
-      if (teams[i].length <= minSize + 1) {
-        if (teamSkillSums[i] < minSkill) {
-          minSkill = teamSkillSums[i];
-          minTeamIdx = i;
-        }
-      }
-    }
-
-    teams[minTeamIdx].push(player);
-    teamSkillSums[minTeamIdx] += player.skill;
-  }
-
-  return teams;
+export function calculateSmsParts(text: string): { length: number; parts: number; isUnderOnePart: boolean } {
+  const len = text.length;
+  if (len === 0) return { length: 0, parts: 0, isUnderOnePart: true };
+  if (len <= 70) return { length: len, parts: 1, isUnderOnePart: true };
+  const parts = Math.ceil(len / 67);
+  return { length: len, parts, isUnderOnePart: false };
 }
 
-export function formatTeamsForSharing(teams: Team[], unassigned: Player[], title?: string): string {
-  const dateStr = new Intl.DateTimeFormat('fa-IR', {
-    dateStyle: 'full',
-    timeStyle: 'short',
-  }).format(new Date());
+/**
+ * Generate ultra-compressed SMS for team leader
+ */
+export function generateTeamSms(
+  team: BootcampTeam,
+  format: 'ultra_cheap' | 'compact' | 'standard' = 'ultra_cheap',
+  bootcampName = 'بوت‌کمپ'
+): string {
+  const leader = team.members[0];
+  const otherMembers = team.members.slice(1);
+  const leaderName = leader ? leader.name : 'مشخص نشده';
+  const membersList = otherMembers.map(m => m.name).join('، ');
 
-  let output = `🏆 ${title || 'سامانه یارکشی و قرعه‌کشی بازی'} 🏆\n`;
-  output += `📅 تاریخ: ${toPersianDigits(dateStr)}\n`;
-  output += `═══════════════════════════\n\n`;
-
-  teams.forEach((team, idx) => {
-    const totalSkill = team.members.reduce((acc, p) => acc + p.skill, 0);
-    const avgSkill = team.members.length ? (totalSkill / team.members.length).toFixed(1) : '۰';
-    
-    output += `🚩 ${team.name} (${toPersianDigits(team.members.length)} نفر | قدرت: ${toPersianDigits(avgSkill)}⭐)\n`;
-    if (team.members.length === 0) {
-      output += `   (عضوی در این تیم حضور ندارد)\n`;
-    } else {
-      team.members.forEach((m, mIdx) => {
-        const roleIcon = m.role === 'captain' ? '👑 ' : m.role === 'goalkeeper' ? '🧤 ' : '▫️ ';
-        const stars = '★'.repeat(m.skill);
-        output += `   ${roleIcon}${toPersianDigits(mIdx + 1)}. ${m.name} (${stars})\n`;
-      });
+  if (format === 'ultra_cheap') {
+    // Ultra minimal single-line to save characters (< 70 chars for 1 SMS part)
+    let msg = `${team.name}|لیدر:${leaderName}`;
+    if (otherMembers.length > 0) {
+      msg += `|اعضا:${membersList}`;
     }
-    output += `\n`;
-  });
-
-  if (unassigned.length > 0) {
-    output += `👥 بازیکنان آزاد و ذخیره (${toPersianDigits(unassigned.length)} نفر):\n`;
-    unassigned.forEach((u, uIdx) => {
-      output += `   - ${u.name}\n`;
-    });
-    output += `\n`;
+    if (team.tableNumber) {
+      msg += `|${team.tableNumber}`;
+    }
+    return msg;
   }
 
-  output += `✨ یارکشی شده توسط سامانه هوشمند یارکشی بازی ✨`;
-  return output;
+  if (format === 'compact') {
+    // 2-3 lines clean compact
+    let msg = `${bootcampName}: ${team.name}\nسرگروه: ${leaderName}`;
+    if (otherMembers.length > 0) {
+      msg += `\nاعضا: ${membersList}`;
+    }
+    if (team.tableNumber) {
+      msg += `\nمحل: ${team.tableNumber}`;
+    }
+    return msg;
+  }
+
+  // Standard format
+  let msg = `🏆 ${bootcampName}\nتیم: ${team.name}\n👑 سرگروه: ${leaderName}\n👥 اعضای تیم (${team.members.length} نفر):\n`;
+  team.members.forEach((m, idx) => {
+    msg += `${idx + 1}. ${m.name}${idx === 0 ? ' (سرگروه)' : ''}\n`;
+  });
+  if (team.tableNumber) {
+    msg += `📍 ${team.tableNumber}\n`;
+  }
+  msg += `موفق و پیروز باشید!`;
+  return msg;
 }
 
-export function exportToTextFile(content: string, filename = 'teams-list.txt'): void {
+/**
+ * Generate batch export text for all teams
+ */
+export function generateAllTeamsSmsBatch(
+  teams: BootcampTeam[],
+  format: 'ultra_cheap' | 'compact' | 'standard' = 'ultra_cheap',
+  bootcampName = 'بوت‌کمپ'
+): string {
+  return teams
+    .map((t, idx) => {
+      const sms = generateTeamSms(t, format, bootcampName);
+      const phone = t.leaderPhone || (t.members[0]?.phone) || 'بدون شماره';
+      return `[تیم ${idx + 1} - گیرنده: ${t.members[0]?.name || 'نامشخص'} - ${phone}]\n${sms}`;
+    })
+    .join('\n\n------------------------------\n\n');
+}
+
+export function exportToTextFile(content: string, filename = 'bootcamp-teams.txt'): void {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

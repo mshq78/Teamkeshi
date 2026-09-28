@@ -1,53 +1,41 @@
 export type AppMode = 'simple' | 'advanced';
 
-export type SkillLevel = 1 | 2 | 3 | 4 | 5;
+export type DisplaySize = 'normal' | 'projector' | 'auditorium';
 
-export type PlayerRole = 'captain' | 'goalkeeper' | 'defender' | 'midfielder' | 'attacker' | 'mafia' | 'citizen' | 'chef' | 'cleaner' | 'none';
+export type DisplayTheme = 'dark-neon' | 'bright-stage';
 
-export interface Player {
+export interface Participant {
   id: string;
   name: string;
-  skill: SkillLevel;
-  role?: PlayerRole;
-  avatarColor?: string;
-  isPresent: boolean;
-  notes?: string;
+  phone?: string;
+  pickedAt?: number;
 }
 
-export interface Team {
+export interface BootcampTeam {
   id: string;
   name: string;
   color: string;
-  bgGradient: string;
+  badgeBg: string;
   borderColor: string;
   textColor: string;
-  badgeBg: string;
-  iconName: string;
-  members: Player[];
-  score: number;
-  slogan?: string;
-  customLogo?: string;
+  tableNumber?: string;
+  leaderPhone?: string;
+  members: Participant[];
+  score?: number;
 }
 
-export type DrawMode = 'random' | 'balanced' | 'captain_draft' | 'wheel';
-
-export type GamePreset = 'general' | 'football' | 'mafia' | 'food_chores' | 'tournament';
-
-export interface MatchPairing {
+export interface DraftLogItem {
   id: string;
-  teamA: string;
-  teamB: string;
-  scoreA?: number;
-  scoreB?: number;
-  round: number;
-  isCompleted: boolean;
+  timestamp: string;
+  participantName: string;
+  teamName: string;
+  teamColor: string;
+  isLeader: boolean;
 }
 
-export interface SavedPreset {
-  id: string;
+export interface SmsTemplateOption {
+  id: 'ultra_cheap' | 'compact' | 'standard';
   title: string;
-  createdAt: string;
-  players: Player[];
-  teamsCount: number;
-  presetType: GamePreset;
+  description: string;
+  maxPartHint: string;
 }
