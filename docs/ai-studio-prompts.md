@@ -1,5 +1,7 @@
 # پرامپت‌های Google AI Studio — سامانه یکپارچه یارکشی + امتیازدهی
 
+> متن خود پرامپت‌ها (داخل کادرها) انگلیسی است تا AI Studio دقیق‌تر بفهمد. توضیحات و چک‌لیست‌ها برای شما فارسی مانده است. متن‌های رابط کاربری که داخل «» آمده‌اند عیناً فارسی در اپ نمایش داده می‌شوند.
+
 ## تقسیم کار
 
 | کار | انجام‌دهنده |
@@ -13,52 +15,77 @@
 1. پرامپت‌ها را **به ترتیب** و **هر بار فقط یکی** به AI Studio بدهید. اول مرحله قبلی را تست کنید، بعد سراغ بعدی بروید.
 2. بعد از هر مرحله، چک‌لیست «تست دستی» زیر همان پرامپت را روی پیش‌نمایش امتحان کنید. اگر چیزی خراب بود، همان‌جا به AI Studio بگویید درستش کند.
 3. بعد از هر مرحله کد را در GitHub روی **یک شاخه جدا** ذخیره کنید، مثلاً `ai-studio/step-1`، نه روی `main`. بعد به Claude بگویید تا بررسی و دیباگ کند.
-4. اگر AI Studio وسط کار قطع شد یا نصفه نوشت، بنویسید: «ادامه بده از همان‌جایی که ماندی، فایل‌های قبلی را بازنویسی نکن».
+4. اگر AI Studio وسط کار قطع شد یا نصفه نوشت، بنویسید:
+   `Continue exactly where you stopped. Do not rewrite files you already finished.`
 
 ---
 
 ## پرامپت ۱ — پایه: آفلاین، رفع باگ‌ها، لایه داده
 
 ```text
-این پروژه یک اپ React + Vite + Tailwind فارسی (RTL) برای یارکشی زنده تیم‌ها در بوت‌کمپ است. قرار است در چند مرحله به یک سامانه یکپارچه «یارکشی + امتیازدهی تیم‌ها» تبدیل شود. این مرحله فقط پایه‌سازی است؛ هیچ ویژگی امتیازدهی اضافه نکن.
+This project is a Persian (RTL) React + Vite + Tailwind app for a live team draft ("یارکشی") at a bootcamp. Over several steps it will become one unified "team draft + team scoring" system. THIS STEP IS FOUNDATION ONLY — do not add any scoring features yet.
 
-قوانین کلی برای همه مراحل (همیشه رعایت کن):
-- اپ باید ۱۰۰٪ بدون اینترنت کار کند. هیچ درخواست شبکه‌ای، CDN، Google Fonts یا API خارجی نباید وجود داشته باشد.
-- از Gemini API یا هر هوش مصنوعی/بک‌اند استفاده نکن. سرور نساز.
-- تمام متن‌های رابط کاربری فارسی باشند و اعداد نمایشی با تابع موجود toPersianDigits به رقم فارسی نمایش داده شوند.
-- TypeScript با strict؛ از any استفاده نکن.
-- ویژگی‌های فعلی یارکشی (درگ‌ودراپ، توزیع تصادفی، پیامک، حالت ساده/پیشرفته، تم‌ها، اندازه نمایش) باید دقیقاً مثل قبل کار کنند.
-- کامپوننت‌های موجود را بی‌دلیل بازنویسی نکن؛ فقط جایی که لازم است تغییر بده.
+GLOBAL RULES (apply to this and every later step):
+- The app must work 100% offline. No network requests, no CDNs, no Google Fonts, no external APIs.
+- Do not use the Gemini API or any AI/backend. Do not create a server.
+- All user-facing text must be in Persian. Displayed numbers must use the existing toPersianDigits helper.
+- TypeScript strict; never use `any`.
+- All existing draft features (drag & drop, random auto-fill, SMS generator, simple/advanced modes, themes, display sizes) must keep working exactly as before.
+- Do not rewrite existing components unless needed; change only what is required.
 
-کارهای این مرحله:
+TASKS:
 
-۱) فونت آفلاین:
-- لینک Google Fonts را از index.html حذف کن.
-- پکیج @fontsource/vazirmatn را اضافه کن و وزن‌های 400، 500، 700، 800، 900 را در src/main.tsx ایمپورت کن.
+1) Offline font
+- Remove the Google Fonts <link> tags from index.html.
+- Add the @fontsource/vazirmatn package and import weights 400, 500, 700, 800, 900 in src/main.tsx.
 
-۲) پاکسازی: پکیج‌های بی‌استفاده @google/genai، express، @types/express و dotenv را از package.json حذف کن. نام پکیج را به "teamkeshi" تغییر بده. فایل .env.example را حذف کن.
+2) Cleanup
+- Remove the unused packages @google/genai, express, @types/express and dotenv from package.json.
+- Rename the package to "teamkeshi".
+- Delete .env.example.
 
-۳) لایه داده متمرکز (خیلی مهم؛ مراحل بعد و همگام‌سازی آینده روی این بنا می‌شوند):
-- یک پوشه src/store/ بساز.
-- src/store/state.ts: یک interface به نام AppState شامل همه داده‌های ماندگار (participants، teams، draftLog و settings) با فیلد schemaVersion: number.
-- src/store/actions.ts: یک union type به نام AppAction برای همه تغییرات داده. مثال‌ها: ASSIGN_TO_TEAM، REMOVE_MEMBER، RETURN_TO_HALL، PROMOTE_LEADER، AUTO_FILL، UPDATE_TEAM، SET_TEAMS_COUNT، RESET_DRAFT، RESET_ALL، ADD_PARTICIPANTS، REMOVE_PARTICIPANT، REPLACE_PARTICIPANTS، UPDATE_PARTICIPANT و IMPORT_BACKUP.
-- src/store/reducer.ts: یک reducer خالص (pure) به شکل (state, action) => state. هیچ side effect مثل صدا، toast یا confetti داخلش نباشد. شناسه‌ها و زمان‌ها از بیرون، داخل payload اکشن بیایند، نه با Date.now() یا Math.random() داخل reducer.
-- src/store/persistence.ts: توابع loadState() و saveState(state) روی localStorage با کلید "teamkeshi_state_v3"، داخل try/catch. اگر داده کلیدهای قدیمی (bootcamp_live_*_v2) وجود داشت، یک بار به فرمت جدید مهاجرت بده.
-- src/store/useAppStore.ts: یک hook که useReducer را با loadState مقداردهی کند، با هر تغییر saveState کند و { state, dispatch } برگرداند.
-- App.tsx را طوری تغییر بده که به‌جای useStateهای جدا از این store استفاده کند. صدا، toast و confetti در App یا کامپوننت‌ها بعد از dispatch اجرا شوند.
+3) Centralized data layer (VERY IMPORTANT — later steps and a future network sync layer will build on this)
+- Create src/store/.
+- src/store/state.ts: an `AppState` interface containing ALL persisted data (participants, teams, draftLog, settings) plus `schemaVersion: number`.
+- src/store/actions.ts: an `AppAction` discriminated union for every data mutation, e.g. ASSIGN_TO_TEAM, REMOVE_MEMBER, RETURN_TO_HALL, PROMOTE_LEADER, AUTO_FILL, UPDATE_TEAM, SET_TEAMS_COUNT, RESET_DRAFT, RESET_ALL, ADD_PARTICIPANTS, REMOVE_PARTICIPANT, REPLACE_PARTICIPANTS, UPDATE_PARTICIPANT, IMPORT_BACKUP.
+- src/store/reducer.ts: a PURE reducer (state, action) => state.
+  - No side effects inside it: no sounds, toasts or confetti.
+  - IDs, timestamps and random values must come in via the action payload. Never call Date.now() or Math.random() inside the reducer. (AUTO_FILL should receive the already-shuffled assignment in its payload.)
+- src/store/persistence.ts: loadState() and saveState(state) using localStorage key "teamkeshi_state_v3", wrapped in try/catch. If the old keys (bootcamp_live_participants_v2, bootcamp_live_teams_v2, bootcamp_live_settings_v2) exist, migrate them once into the new format.
+- src/store/useAppStore.ts: a hook that initializes useReducer from loadState(), calls saveState on every change, and returns { state, dispatch }.
+- Refactor App.tsx to use this store instead of separate useState calls. Sounds, toasts and confetti are triggered in App/components after dispatching.
 
-۴) رفع باگ‌ها:
-الف) شماره سرگروه: فیلد leaderPhone را از BootcampTeam حذف کن. شماره فقط روی Participant.phone باشد. سرگروه همیشه members[0] است و شماره‌اش phone همان شخص است. در SmsModal، ویرایش شماره باید UPDATE_PARTICIPANT روی سرگروه فعلی بزند. با عوض شدن سرگروه، شماره نمایشی هم باید عوض شود. در مهاجرت داده قدیمی، اگر تیمی leaderPhone داشت و سرگروهش phone نداشت، آن را به phone سرگروه منتقل کن.
-ب) اعضای یتیم: با حذف یک شرکت‌کننده (REMOVE_PARTICIPANT) یا جایگزینی کل لیست (REPLACE_PARTICIPANTS)، افرادی که دیگر در لیست نیستند باید از تیم‌ها هم حذف شوند. تیم‌ها فقط id اعضا را نگه دارند (memberIds: string[]) و اطلاعات کامل از participants خوانده شود تا ویرایش نام یا شماره همه‌جا اعمال شود. یک selector به نام getTeamMembers(state, teamId) بساز.
-ج) افزودن دسته‌ای: هر خط یک نفر است. جداکننده خط‌ها فقط newline باشد، نه ویرگول. در هر خط، شماره موبایل با regex پیدا شود: الگوی موبایل ایران شامل 09xxxxxxxxx یا +989xxxxxxxxx، با رقم فارسی یا انگلیسی و با خط‌تیره یا فاصله احتمالی بین رقم‌ها. شماره پیدا شده را به ارقام انگلیسی بدون فاصله نرمال کن. باقی خط، بعد از حذف جداکننده‌های اضافه در ابتدا و انتها مثل - | ، , و tab، نام است. نام‌هایی که خط‌تیره دارند نباید نصف شوند. یک تابع خالص parseParticipantLines(text) در src/utils/parse.ts بساز.
-د) کپی در کلیپ‌بورد: پیام «کپی شد» فقط وقتی نمایش داده شود که navigator.clipboard.writeText واقعاً موفق شد. در غیر این صورت از روش fallback (textarea + document.execCommand('copy')) استفاده کن و اگر آن هم نشد، پیام خطا بده.
-هـ) برچسب «فوق‌فشرده (۱ پیامک = زیر ۷۰ کاراکتر)» را به «فوق‌فشرده (کمترین کاراکتر)» تغییر بده.
+4) Bug fixes
+a) Leader phone
+- Remove `leaderPhone` from BootcampTeam. A phone number lives only on Participant.phone.
+- The leader is always the first member, and the leader's phone is that person's phone.
+- In SmsModal, editing the phone must dispatch UPDATE_PARTICIPANT for the current leader. When the leader changes, the displayed phone must change with them.
+- Migration: if an old team had leaderPhone and its leader has no phone, move it onto the leader's phone.
 
-۵) پشتیبان‌گیری: در هدر، کنار دکمه‌های فعلی، یک منوی «پشتیبان» با دو گزینه اضافه کن:
-- «دانلود فایل پشتیبان»: کل AppState به‌صورت JSON با نام teamkeshi-backup-YYYY-MM-DD-HHmm.json دانلود شود.
-- «بازیابی از فایل»: یک فایل JSON انتخاب شود، schemaVersion و ساختارش اعتبارسنجی شود، و بعد از تأیید کاربر (دیالوگ داخل اپ، نه window.confirm) جایگزین state فعلی شود. فایل خراب یا نامعتبر نباید اپ را خراب کند.
+b) Orphaned members
+- Teams must store only member IDs (`memberIds: string[]`). Full participant data is always read from `participants`, so editing a name or phone updates everywhere.
+- Add a selector getTeamMembers(state, teamId).
+- REMOVE_PARTICIPANT and REPLACE_PARTICIPANTS must also remove those people from every team.
 
-در پایان، فهرست فایل‌هایی که ساختی یا تغییر دادی را با یک خط توضیح برای هر کدام بنویس.
+c) Bulk paste parsing
+- One person per line. Split lines ONLY on newlines, never on commas.
+- In each line, find a mobile number with a regex for Iranian mobiles: 09xxxxxxxxx or +989xxxxxxxxx. Accept Persian or Latin digits, and optional spaces or dashes between digits. Normalize the number to Latin digits with no separators.
+- The rest of the line, trimmed of leading/trailing separators (- | ، , tab), is the name. Names that contain a hyphen must NOT be split.
+- Implement this as a pure function parseParticipantLines(text) in src/utils/parse.ts.
+
+d) Clipboard
+- Show «کپی شد» only if navigator.clipboard.writeText actually resolved.
+- Otherwise fall back to a hidden textarea + document.execCommand('copy'). If that also fails, show an error message.
+
+e) SMS label
+- Change the label «فوق‌فشرده (۱ پیامک = زیر ۷۰ کاراکتر)» to «فوق‌فشرده (کمترین کاراکتر)».
+
+5) Backup
+Add a «پشتیبان» menu in the header, next to the existing buttons, with two options:
+- «دانلود فایل پشتیبان»: download the whole AppState as JSON, named teamkeshi-backup-YYYY-MM-DD-HHmm.json.
+- «بازیابی از فایل»: pick a JSON file, validate schemaVersion and structure, then ask for confirmation with an in-app dialog (not window.confirm) before replacing the current state. An invalid or corrupt file must never crash the app.
+
+When done, list every file you created or modified, with one line of explanation per file.
 ```
 
 **تست دستی مرحله ۱**
@@ -75,69 +102,89 @@
 ## پرامپت ۲ — مدل امتیازدهی و صفحه تنظیمات
 
 ```text
-مرحله ۲: افزودن مدل داده امتیازدهی و صفحه تنظیمات امتیازدهی. همه قوانین کلی مرحله ۱ هنوز برقرارند. همه تغییرات داده فقط از طریق store، یعنی actionهای جدید در reducer، انجام شود.
+STEP 2: add the scoring data model and the scoring setup screen. All GLOBAL RULES from step 1 still apply. Every data change must go through the store (new actions in the reducer).
 
-زمینه: بعد از یارکشی، تیم‌ها در چند رویداد شرکت می‌کنند؛ مثلاً بازی صبح، آشپزی و ناهار، و کارگاه یا بازی فکری. هر رویداد چند شاخص دارد و چند داور به هر تیم در هر شاخص امتیاز می‌دهند. در پایان، تیم برتر مشخص می‌شود.
+CONTEXT: After the draft, teams compete in several events — e.g. a morning team game, cooking their own lunch, and a workshop or strategy/thinking game. Each event has several criteria ("indicators"). Several judges score every team on every indicator. At the end, the winning team is announced.
 
-۱) انواع جدید در types.ts (دقیقاً همین ساختار؛ مراحل بعد و سرور همگام‌سازی به آن وابسته‌اند):
+1) New types in types.ts (use EXACTLY this shape — later steps and a sync server depend on it):
 
 type EventStatus = 'upcoming' | 'active' | 'closed';
 
 interface ScoringIndicator { id: string; name: string; maxScore: number; weight: number; order: number; }
-- maxScore پیش‌فرض ۱۰ است.
-- weight وزن نسبی داخل رویداد است و پیش‌فرض ۱.
+- maxScore defaults to 10.
+- weight is the relative weight inside its event; default 1.
 
-interface ScoringEvent { id: string; name: string; weight: number; order: number; status: EventStatus; indicators: ScoringIndicator[]; }
-- weight وزن نسبی رویداد در امتیاز کل است و پیش‌فرض ۱.
+interface ScoringEvent { id: string; name: string; weight: number; order: number; status: EventStatus; indicators: ScoringIndicator[]; awardTitle?: string; }
+- weight is the relative weight of the event in the total; default 1.
 
 interface Judge { id: string; name: string; accessCode: string; eventIds: string[]; }
-- accessCode یک کد ۴ رقمی تصادفی است.
-- اگر eventIds خالی باشد یعنی داور همه رویدادها را داوری می‌کند.
+- accessCode is a random 4-digit code, unique among judges.
+- An empty eventIds means the judge may score all events.
 
 interface ScoreEntry { judgeId: string; teamId: string; eventId: string; indicatorId: string; value: number | null; updatedAt: string; }
-- updatedAt رشته ISO است.
+- updatedAt is an ISO string.
+
+interface ScoreNote { judgeId: string; teamId: string; eventId: string; text: string; updatedAt: string; }
 
 interface ScoreAdjustment { id: string; teamId: string; eventId: string | null; points: number; reason: string; createdAt: string; }
-- points می‌تواند مثبت یا منفی باشد.
+- points can be positive or negative.
 
-interface ScoringSettings { leaderboardFrozen: boolean; showJudgeNames: boolean; tieBreak: 'most_event_wins' | 'highest_last_event' | 'manual'; }
+interface ScoringSettings { leaderboardFrozen: boolean; frozenSnapshot: TeamStanding[] | null; showJudgeNames: boolean; tieBreak: 'most_event_wins' | 'highest_last_event' | 'manual'; }
 
-به AppState اضافه کن:
-scoring: { events: ScoringEvent[]; judges: Judge[]; scores: Record<string, ScoreEntry>; adjustments: ScoreAdjustment[]; settings: ScoringSettings }
-- کلید scores دقیقاً `${judgeId}|${teamId}|${indicatorId}` است.
-- schemaVersion را یکی بالا ببر و برای داده قدیمی مهاجرت بنویس که scoring را با مقدار پیش‌فرض بسازد.
+Add to AppState:
+scoring: { events: ScoringEvent[]; judges: Judge[]; scores: Record<string, ScoreEntry>; notes: Record<string, ScoreNote>; adjustments: ScoreAdjustment[]; settings: ScoringSettings }
+- The scores key is exactly `${judgeId}|${teamId}|${indicatorId}`.
+- The notes key is `${judgeId}|${teamId}|${eventId}`.
+- Bump schemaVersion and add a migration that initializes `scoring` with defaults for old data.
 
-۲) محاسبه، در یک فایل خالص src/scoring/compute.ts بدون React:
-- تابع computeStandings(state) برای هر تیم این‌ها را برگرداند: امتیاز هر رویداد (۰ تا ۱۰۰)، مجموع امتیازات دستی (adjustments)، امتیاز کل، رتبه، و درصد تکمیل داوری.
-- قاعده محاسبه:
-  الف) برای هر شاخص، میانگین value/maxScore روی داورهایی که امتیاز داده‌اند (value غیر null) گرفته شود.
-  ب) امتیاز رویداد برابر است با میانگین وزن‌دار شاخص‌ها (با weight شاخص) ضرب در ۱۰۰. شاخصی که هیچ امتیازی ندارد در میانگین حساب نشود.
-  ج) امتیاز کل برابر است با میانگین وزن‌دار امتیاز رویدادهایی که حداقل یک امتیاز دارند (با weight رویداد)، به‌علاوه مجموع points در adjustments.
-  د) رتبه‌بندی نزولی باشد. در تساوی، طبق settings.tieBreak عمل کن و در حالت manual تساوی را با رتبه مشترک نمایش بده.
-- تابع computeEventWinners(state): برنده هر رویدادِ closed.
-- همه اعداد نهایی تا یک رقم اعشار گرد شوند، ولی محاسبه با دقت کامل انجام شود.
-- در src/scoring/compute.test.ts چند تست با vitest بنویس (vitest را به devDependencies اضافه کن و اسکریپت "test": "vitest run" بگذار).
+2) Scoring math — a pure module src/scoring/compute.ts (no React)
+- computeStandings(state): TeamStanding[] returns, per team: teamId, per-event scores (0–100 or null), total of adjustments, grand total, rank, and judging completion percentage.
+- Rules:
+  a) For each indicator: the average of value / maxScore over the judges who gave a non-null value.
+  b) Event score = weighted average (by indicator weight) of the indicator averages × 100. Indicators with no scores at all are excluded from the average.
+  c) Grand total = weighted average (by event weight) of the events that have at least one score, plus the sum of adjustment points.
+  d) Rank descending. Break ties according to settings.tieBreak; with 'manual', tied teams share the same rank.
+- computeEventWinners(state): the winning team of each 'closed' event.
+- Round final displayed numbers to 1 decimal, but compute with full precision.
+- Add vitest to devDependencies, a "test": "vitest run" script, and write tests in src/scoring/compute.test.ts covering weights, missing scores, adjustments and ties.
 
-۳) حالت جدید اپ: AppMode را به 'simple' | 'advanced' | 'scoring' | 'stage' گسترش بده. در هدر یک تب «امتیازدهی» اضافه کن ('stage' در مرحله ۴ ساخته می‌شود؛ فعلاً فقط نوعش را اضافه کن).
+3) App modes
+- Extend AppMode to 'simple' | 'advanced' | 'scoring' | 'stage'.
+- Add an «امتیازدهی» tab in the header. ('stage' is built in step 4 — only add the type now.)
+- The scoring mode has sub-tabs: «تنظیمات»، «ثبت امتیاز»، «امتیاز مجری»، «گزارش». Build only «تنظیمات» in this step; the others are placeholders for now.
 
-۴) صفحه «تنظیمات امتیازدهی» (زیربخش اول حالت scoring):
-- مدیریت رویدادها: افزودن، ویرایش نام و وزن، حذف با تأیید، و جابه‌جایی ترتیب با دکمه‌های بالا و پایین. وضعیت رویداد (پیش‌رو، در جریان، بسته‌شده) با یک کنترل سه‌حالته تنظیم شود. داخل هر رویداد، شاخص‌ها با نام، حداکثر امتیاز و وزن مدیریت شوند.
-- نمایش درصد سهم هر رویداد از کل (weight تقسیم بر مجموع weightها) به‌صورت زنده، تا کاربر بفهمد وزن‌ها چه معنایی دارند.
-- ورود از اکسل: دکمه «ورود رویدادها از اکسل» با کتابخانه xlsx (SheetJS). فرمت همان قالب قبلی ماست:
-  - شیت اول (یا شیتی با نام 01_Events_Indicators) خوانده شود.
-  - سطر اول عنوان است.
-  - از سطر دوم، ستون A نام رویداد است و ستون‌های B به بعد نام شاخص‌ها.
-  - مقادیر trim شوند. ردیف خالی رد شود. رویداد بدون شاخص خطا حساب شود.
-  - قبل از اعمال، پیش‌نمایش نمایش داده شود و کاربر انتخاب کند «جایگزینی» یا «افزودن».
-  - یک دکمه «دانلود قالب اکسل خام» هم بگذار که همین قالب را بسازد.
-- یک دکمه «بارگذاری نمونه آماده» که این رویدادها را بسازد:
-  - بازی تیمی صبح: کار تیمی، سرعت عمل، دقت
-  - آشپزی و ناهار: طعم، ظاهر و سرو، نظافت و بهداشت، تقسیم کار، رعایت زمان
-  - بازی فکری / کارگاه: استراتژی، خلاقیت، حل مسئله، مشارکت همه اعضا
-- مدیریت داورها: افزودن با نام، تولید خودکار accessCode، انتخاب رویدادهای مجاز با چک‌باکس، ویرایش و حذف. حذف داوری که امتیاز ثبت کرده نیاز به تأیید جداگانه دارد و امتیازهایش را هم حذف می‌کند.
-- اگر در یارکشی تیمی حذف شود (کم کردن تعداد تیم‌ها)، امتیازها و adjustments آن تیم هم حذف شوند. قبل از آن، اگر تیم امتیاز داشت، هشدار نمایش داده شود.
+4) «تنظیمات» screen
+Events:
+- Add, rename, change weight, delete (with confirmation), and reorder with up/down buttons.
+- Set event status with a 3-state control: «پیش‌رو» / «در جریان» / «بسته‌شده».
+- Inside each event, manage its indicators: name, max score and weight.
+- Show each event's live share of the total as a percentage (weight / sum of weights) so users understand what weights mean.
 
-در پایان، فهرست فایل‌های ساخته یا تغییرداده‌شده را بنویس.
+Excel import:
+- Add an «ورود رویدادها از اکسل» button using the xlsx (SheetJS) package. The format is our existing template:
+  - Read the sheet named 01_Events_Indicators, or the first sheet if it doesn't exist.
+  - Row 1 is the header.
+  - From row 2: column A is the event name, and columns B onward are indicator names.
+  - Trim values. Skip fully empty rows. An event with no indicators is an error.
+- Show a preview before applying, and let the user choose «جایگزینی» (replace) or «افزودن» (append).
+- Add an «دانلود قالب اکسل خام» button that generates that same empty template.
+
+Sample preset:
+- Add a «بارگذاری نمونه آماده» button that creates these events:
+  - «بازی تیمی صبح»: کار تیمی، سرعت عمل، دقت
+  - «آشپزی و ناهار»: طعم، ظاهر و سرو، نظافت و بهداشت، تقسیم کار، رعایت زمان
+  - «بازی فکری / کارگاه»: استراتژی، خلاقیت، حل مسئله، مشارکت همه اعضا
+
+Judges:
+- Add a judge by name; the accessCode is generated automatically and shown clearly.
+- Choose allowed events with checkboxes. Edit and delete judges.
+- Deleting a judge who already has scores needs a separate confirmation, and also deletes their scores and notes.
+
+Team removal:
+- When the team count is reduced in the draft, also delete that team's scores, notes and adjustments.
+- If the team has any scores, warn the user first.
+
+When done, list every file you created or modified.
 ```
 
 **تست دستی مرحله ۲**
@@ -153,41 +200,42 @@ scoring: { events: ScoringEvent[]; judges: Judge[]; scores: Record<string, Score
 ## پرامپت ۳ — ثبت امتیاز: اپراتور، داور و امتیاز دستی
 
 ```text
-مرحله ۳: ثبت امتیاز. قوانین کلی برقرارند. همه تغییرات داده از store و actionها انجام شود.
+STEP 3: score entry. All GLOBAL RULES still apply. Every data change goes through store actions.
 
-۱) actionهای جدید: SET_SCORE (judgeId, teamId, eventId, indicatorId, value | null, updatedAt)، ADD_ADJUSTMENT، REMOVE_ADJUSTMENT، SET_EVENT_STATUS و SET_SCORING_SETTINGS.
-- ولیدیشن در reducer: value باید عدد صحیح بین ۰ و maxScore آن شاخص باشد، یا null. مقدار نامعتبر نادیده گرفته شود.
-- امتیاز برای رویدادی که status آن 'closed' است فقط از صفحه اپراتور قابل تغییر باشد، نه از صفحه داور.
+1) New actions
+- SET_SCORE (judgeId, teamId, eventId, indicatorId, value | null, updatedAt), SET_NOTE, ADD_ADJUSTMENT, REMOVE_ADJUSTMENT, SET_EVENT_STATUS and SET_SCORING_SETTINGS.
+- Validate in the reducer: value must be an integer from 0 to that indicator's maxScore, or null. Ignore invalid values.
+- Add a `source: 'operator' | 'judge'` field to SET_SCORE. Scores for an event whose status is 'closed' may only be changed with source 'operator'.
 
-۲) صفحه «ثبت امتیاز اپراتور» (زیربخش دوم حالت scoring، برای لپ‌تاپ):
-- بالای صفحه: انتخاب رویداد و انتخاب داور. ثبت «به نیابت از داور» مجاز است؛ مثلاً داور امتیاز را روی کاغذ داده و اپراتور وارد می‌کند.
-- جدول: ردیف‌ها شاخص‌ها و ستون‌ها تیم‌ها با رنگ و نام خودشان. هر خانه یک input عددی است.
-- کیبورد: Enter یا Tab به خانه بعدی برود، و کلیدهای جهت‌نما (با رعایت RTL) بین خانه‌ها حرکت کنند.
-- خانه خالی رنگ متمایز داشته باشد. مقدار بیشتر از max قرمز شود و ذخیره نشود.
-- زیر هر ستون، امتیاز فعلی آن تیم در این رویداد (۰ تا ۱۰۰) به‌صورت زنده نمایش داده شود.
-- نوار پیشرفت: چند درصد از خانه‌های این داور در این رویداد پر شده.
-- یک نمای «ماتریس تکمیل» هم بساز: برای رویداد انتخاب‌شده، جدول داور × تیم که درصد تکمیل هر خانه را نشان دهد، تا اپراتور ببیند کدام داور کارش مانده.
+2) «ثبت امتیاز» — operator score entry (laptop)
+- At the top: select the event and select the judge. Entering scores on a judge's behalf is allowed, e.g. when the judge scored on paper.
+- A grid: rows are indicators, columns are teams (with team color and name). Each cell is a numeric input.
+- Keyboard: Enter/Tab moves to the next cell; arrow keys move between cells, respecting RTL.
+- Empty cells have a distinct color. A value above max turns red and is not saved.
+- Under each column, show that team's live event score (0–100).
+- A progress bar shows what percentage of this judge's cells for this event are filled.
+- Also add a «ماتریس تکمیل» view: for the selected event, a judge × team table showing completion % per cell, so the operator can see which judge still has work left.
 
-۳) صفحه «داور» (موبایل‌محور):
-- اگر URL شامل ?judge=1 باشد، اپ به‌جای رابط اصلی فقط صفحه ورود داور را نشان دهد: یک فیلد برای کد ۴ رقمی. با کد درست، داور وارد شود و judgeId در sessionStorage بماند.
-- بعد از ورود:
-  - لیست رویدادهای مجاز این داور نمایش داده شود. رویدادهای active برجسته باشند و رویدادهای closed فقط‌خواندنی.
-  - با انتخاب رویداد، یک تیم در هر صفحه نمایش داده شود با رنگ و نام تیم، و بین تیم‌ها با swipe یا دکمه قبلی/بعدی جابه‌جا شود.
-  - برای هر شاخص، ردیف دکمه‌های بزرگ ۰ تا max (مناسب انگشت) نمایش داده شود. اگر max بیشتر از ۱۰ بود، به‌جای دکمه اسلایدر نمایش داده شود.
-  - یک فیلد یادداشت اختیاری برای هر تیم در هر رویداد باشد. برای این کار ScoreNote را به state اضافه کن: { judgeId, teamId, eventId, text, updatedAt } با کلید `${judgeId}|${teamId}|${eventId}`.
-  - تیک سبز روی تیم‌هایی که کامل امتیاز گرفته‌اند.
-- داور هرگز امتیاز کل، رتبه‌ها یا امتیاز داورهای دیگر را نبیند.
-- هر تغییر فوراً dispatch و ذخیره شود؛ دکمه «ذخیره» وجود نداشته باشد.
-- نکته فنی مهم: فعلاً این صفحه روی همان localStorage همان دستگاه کار می‌کند. در مرحله بعد، همگام‌سازی بین گوشی‌ها و لپ‌تاپ از طریق شبکه محلی اضافه می‌شود؛ پس کد این صفحه فقط از store و dispatch استفاده کند و هیچ‌جا مستقیم localStorage را نخواند.
+3) Judge screen (mobile-first)
+- If the URL contains ?judge=1, render ONLY the judge login screen instead of the main app: one input for the 4-digit code. On success, keep judgeId in sessionStorage.
+- After login:
+  - Show the events this judge is allowed to score. Highlight 'active' events; 'closed' events are read-only.
+  - Picking an event shows ONE team per screen (team color and name). Move between teams by swiping or with «قبلی» / «بعدی» buttons.
+  - For each indicator, show a row of big finger-friendly buttons from 0 to max. If max is greater than 10, use a slider instead.
+  - An optional note field per team per event (SET_NOTE).
+  - Show a green check on teams this judge has fully scored.
+- A judge must NEVER see totals, ranks or other judges' scores.
+- Every change is dispatched and saved immediately. There is no "save" button.
+- IMPORTANT technical note: for now this screen runs on the same device's localStorage. In a later step, a sync layer between phones and the laptop over the local network will be added. So this screen must use ONLY the store (state + dispatch) and must never read localStorage directly.
 
-۴) «امتیاز دستی مجری» (زیربخش سوم حالت scoring):
-- کارت‌های بزرگ تیم‌ها با دکمه‌های سریع −۵، −۲، −۱، +۱، +۲ و +۵ و یک فیلد عدد دلخواه.
-- انتخاب اختیاری رویداد مرتبط.
-- فیلد دلیل (اجباری)، با چند دلیل آماده به‌صورت chip: روحیه تیمی، تأخیر، رعایت نکردن قوانین، کمک به تیم دیگر، خلاقیت ویژه.
-- تاریخچه adjustments با امکان حذف (با تأیید).
-- هر ثبت، صدای کوتاه (sound موجود) و toast داشته باشد.
+4) «امتیاز مجری» — host bonus/penalty
+- Big team cards with quick buttons: −5, −2, −1, +1, +2, +5, plus a custom number input.
+- Optional link to an event.
+- A REQUIRED reason field, with preset chips: «روحیه تیمی»، «تأخیر»، «رعایت نکردن قوانین»، «کمک به تیم دیگر»، «خلاقیت ویژه».
+- A history list of adjustments, each removable with confirmation.
+- Each entry plays a short sound (existing `sound` helper) and shows a toast.
 
-در پایان، فهرست فایل‌ها را بنویس.
+When done, list every file you created or modified.
 ```
 
 **تست دستی مرحله ۳**
@@ -202,33 +250,35 @@ scoring: { events: ScoringEvent[]; judges: Judge[]; scores: Record<string, Score
 ## پرامپت ۴ — صحنه: رده‌بندی زنده، قفل، اعلام نتیجه، گزارش
 
 ```text
-مرحله ۴: حالت 'stage' برای پرده پروژکتور و گزارش پایانی. قوانین کلی برقرارند. از motion (موجود در پروژه) برای انیمیشن‌ها و از canvas-confetti و sound موجود استفاده کن. همه اعداد از computeStandings و computeEventWinners بیایند؛ منطق محاسبه را تکرار نکن.
+STEP 4: the 'stage' mode for the projector screen, plus the final report. All GLOBAL RULES still apply. Use `motion` (already installed) for animations, and the existing canvas-confetti and `sound` helper. All numbers must come from computeStandings / computeEventWinners — do not duplicate the scoring math.
 
-۱) «رده‌بندی زنده»:
-- تمام‌صفحه، با احترام به displaySize و displayTheme فعلی.
-- هر تیم یک میله افقی با رنگ خودش دارد، با نام تیم، نام سرگروه و امتیاز کل با رقم فارسی. عددها با انیمیشن شمارشی تغییر کنند.
-- با تغییر رتبه، میله‌ها با layout animation جابه‌جا شوند. کنار هر تیم، فلش ▲ یا ▼ تغییر رتبه نسبت به وضعیت قبلی نمایش داده شود. وضعیت قبلی در state نگه داشته شود.
-- ستون‌های کوچک امتیاز هر رویداد برای هر تیم هم نمایش داده شوند؛ رویدادهایی که امتیاز ندارند با «—».
-- حالت قفل (settings.leaderboardFrozen): وقتی فعال است، پرده آخرین وضعیت قبل از قفل را نشان دهد، همراه با نشان «🔒 رده‌بندی تا اعلام نتایج قفل است». برای این کار، snapshot استندینگ در لحظه قفل در state ذخیره شود.
-- دکمه‌های کنترل (قفل/باز، رفتن به اعلام نتیجه، خروج) در یک نوار کوچک در گوشه باشند که با حرکت ماوس ظاهر و بعد از ۳ ثانیه مخفی شوند. کلید F تمام‌صفحه را فعال یا غیرفعال کند.
+1) Live leaderboard
+- Fullscreen; respects the current displaySize and displayTheme.
+- Each team is a horizontal bar in its own color, showing team name, leader name, and grand total in Persian digits. Numbers animate (count up/down) when they change.
+- When ranks change, bars move with layout animations. Next to each team, show ▲/▼ for the rank change since the previous state (keep the previous ranking in state).
+- Show small per-event score columns for each team; use «—» for events with no scores yet.
+- Freeze mode (settings.leaderboardFrozen): when enabled, the stage shows the snapshot taken at the moment of freezing (settings.frozenSnapshot), with a badge «🔒 رده‌بندی تا اعلام نتایج قفل است». New scores do not change the stage while frozen.
+- Controls (freeze/unfreeze, go to reveal, exit) sit in a small corner bar that appears on mouse move and hides after 3 seconds. The F key toggles browser fullscreen.
 
-۲) «اعلام نتیجه» (reveal):
-- مرحله‌به‌مرحله با کلید Space، کلید ← یا کلیک، از آخرین رتبه به اول.
-- رتبه‌های پایین‌تر سریع‌تر نمایش داده شوند؛ سه رتبه آخر هر کدام با مکث و طبل (یک صدای جدید در sound.ts با Web Audio، مثل playDrumroll) نمایش داده شوند.
-- رتبه اول: کارت بزرگ تیم با رنگش، نام همه اعضا، confetti چندمرحله‌ای و playFanfare.
-- قبل از رتبه‌بندی کلی، به‌صورت اختیاری (یک تیک در تنظیمات)، «جایزه‌های هر رویداد» یکی‌یکی اعلام شوند: برنده هر رویداد بسته‌شده، با عنوان قابل ویرایش در تنظیمات رویداد (فیلد اختیاری awardTitle در ScoringEvent، مثلاً «بهترین آشپز»).
-- در هر لحظه، کلید Backspace یک مرحله برگردد.
+2) Reveal (announcing the results)
+- Step by step with Space, the arrow key or a click, from LAST place to FIRST.
+- Lower ranks reveal faster. Each of the top 3 reveals with a pause and a drumroll. Add playDrumroll() to sound.ts using Web Audio.
+- First place: a big card in the team's color listing all members, multi-burst confetti and playFanfare.
+- Optional (a checkbox in settings): before the overall ranking, announce per-event awards one by one — the winner of each closed event with its awardTitle (e.g. «بهترین آشپز»). Add an awardTitle input to the event settings.
+- Backspace goes back one step at any point.
 
-۳) «نمودار روند روز»: نمودار خطی ساده با SVG خودت (بدون کتابخانه نمودار) که رتبه هر تیم را بعد از هر رویداد بسته‌شده نشان دهد. رنگ هر خط رنگ تیم باشد. این نمودار هم در stage نمایش داده شود و هم در گزارش.
+3) Rank-over-time chart
+- A simple line chart drawn with your own SVG (no chart library) showing each team's rank after each closed event, with each line in the team's color.
+- Show it on the stage and in the report.
 
-۴) «گزارش پایانی» (زیربخش چهارم حالت scoring):
-- جدول کامل: تیم، اعضا، امتیاز هر رویداد، امتیاز دستی و امتیاز کل.
-- جزئیات قابل‌بازشدن هر تیم: امتیاز هر شاخص به تفکیک داور، یادداشت‌های داورها و تاریخچه adjustments.
-- دکمه «چاپ / PDF» با window.print و استایل مخصوص چاپ (@media print): پس‌زمینه سفید، بدون دکمه‌ها، و هر تیم در یک صفحه به شکل «کارنامه تیم».
-- دکمه «خروجی اکسل» با xlsx، با شیت‌های خلاصه، جزئیات امتیازها و امتیازات دستی.
-- دکمه «پیامک نتیجه به سرگروه‌ها»: از SmsModal فعلی با یک قالب جدید «نتیجه» استفاده کن که متنی کوتاه تولید کند، مثل «تیم X | رتبه ۲ از ۶ | امتیاز ۸۷٫۵ | تبریک!».
+4) «گزارش» — final report
+- A full table: team, members, per-event scores, adjustments total, grand total.
+- An expandable detail per team: per-indicator scores broken down by judge, judge notes, and adjustment history.
+- A «چاپ / PDF» button using window.print, with @media print styles: white background, no buttons, one team per page as a "team report card".
+- An «خروجی اکسل» button using xlsx, with sheets: summary, detailed scores, adjustments.
+- A «پیامک نتیجه به سرگروه‌ها» button that reuses the existing SmsModal with a new "result" template producing a short text such as: «تیم X | رتبه ۲ از ۶ | امتیاز ۸۷٫۵ | تبریک!».
 
-در پایان، فهرست فایل‌ها را بنویس.
+When done, list every file you created or modified.
 ```
 
 **تست دستی مرحله ۴**
