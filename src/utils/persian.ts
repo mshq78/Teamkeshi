@@ -35,13 +35,25 @@ export function calculateSmsParts(text: string): { length: number; parts: number
  */
 export function generateTeamSms(
   team: BootcampTeam,
-  format: 'ultra_cheap' | 'compact' | 'standard' = 'ultra_cheap',
-  bootcampName = 'بوت‌کمپ'
+  members: Participant[],
+  format: 'ultra_cheap' | 'compact' | 'standard' | 'result' = 'ultra_cheap',
+  bootcampName = 'بوت‌کمپ',
+  resultInfo?: { rank: number; totalTeams: number; grandTotal: number }
 ): string {
-  const leader = team.members[0];
-  const otherMembers = team.members.slice(1);
+  const leader = members[0];
+  const otherMembers = members.slice(1);
   const leaderName = leader ? leader.name : 'مشخص نشده';
   const membersList = otherMembers.map(m => m.name).join('، ');
+
+  if (format === 'result') {
+    const rankStr = resultInfo ? toPersianDigits(resultInfo.rank) : '—';
+    const totalTeamsStr = resultInfo ? toPersianDigits(resultInfo.totalTeams) : '—';
+    const scoreVal = resultInfo ? Math.round(resultInfo.grandTotal * 10) / 10 : (team.score ?? '—');
+    const scoreStr = toPersianDigits(scoreVal);
+    const isFirst = resultInfo?.rank === 1;
+    const cheer = isFirst ? 'قهرمان مسابقات!' : 'تبریک!';
+    return `تیم ${team.name} | رتبه ${rankStr} از ${totalTeamsStr} | امتیاز ${scoreStr} | ${cheer}`;
+  }
 
   if (format === 'ultra_cheap') {
     // Ultra minimal single-line to save characters (< 70 chars for 1 SMS part)
@@ -68,8 +80,8 @@ export function generateTeamSms(
   }
 
   // Standard format
-  let msg = `🏆 ${bootcampName}\nتیم: ${team.name}\n👑 سرگروه: ${leaderName}\n👥 اعضای تیم (${team.members.length} نفر):\n`;
-  team.members.forEach((m, idx) => {
+  let msg = `🏆 ${bootcampName}\nتیم: ${team.name}\n👑 سرگروه: ${leaderName}\n👥 اعضای تیم (${members.length} نفر):\n`;
+  members.forEach((m, idx) => {
     msg += `${idx + 1}. ${m.name}${idx === 0 ? ' (سرگروه)' : ''}\n`;
   });
   if (team.tableNumber) {
@@ -84,14 +96,19 @@ export function generateTeamSms(
  */
 export function generateAllTeamsSmsBatch(
   teams: BootcampTeam[],
-  format: 'ultra_cheap' | 'compact' | 'standard' = 'ultra_cheap',
-  bootcampName = 'بوت‌کمپ'
+  teamMembersMap: Map<string, Participant[]>,
+  format: 'ultra_cheap' | 'compact' | 'standard' | 'result' = 'ultra_cheap',
+  bootcampName = 'بوت‌کمپ',
+  resultsMap?: Record<string, { rank: number; totalTeams: number; grandTotal: number }>
 ): string {
   return teams
     .map((t, idx) => {
-      const sms = generateTeamSms(t, format, bootcampName);
-      const phone = t.leaderPhone || (t.members[0]?.phone) || 'بدون شماره';
-      return `[تیم ${idx + 1} - گیرنده: ${t.members[0]?.name || 'نامشخص'} - ${phone}]\n${sms}`;
+      const members = teamMembersMap.get(t.id) || [];
+      const leader = members[0];
+      const resInfo = resultsMap ? resultsMap[t.id] : undefined;
+      const sms = generateTeamSms(t, members, format, bootcampName, resInfo);
+      const phone = leader?.phone || 'بدون شماره';
+      return `[تیم ${idx + 1} - گیرنده: ${leader?.name || 'نامشخص'} - ${phone}]\n${sms}`;
     })
     .join('\n\n------------------------------\n\n');
 }

@@ -1,86 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   AppMode, 
   DisplaySize, 
   DisplayTheme, 
   Participant, 
-  BootcampTeam, 
-  DraftLogItem 
+  BootcampTeam 
 } from './types';
 import { CheckCircle2 } from 'lucide-react';
 import { 
   createInitialBootcampTeams, 
-  SAMPLE_BOOTCAMP_PARTICIPANTS,
   TEAM_COLOR_PALETTES 
 } from './utils/defaultData';
-import { shuffleArray } from './utils/persian';
+import { shuffleArray, toPersianDigits } from './utils/persian';
 import { sound } from './utils/sound';
+import { downloadBackupJson } from './utils/backup';
+import { 
+  useAppStore, 
+  getUnassignedParticipants, 
+  getAllTeamMembersMap,
+  AppState 
+} from './store';
 import { DatashowHeader } from './components/DatashowHeader';
 import { SimpleDraftView } from './components/SimpleDraftView';
 import { AdvancedDashboard } from './components/AdvancedDashboard';
+import { ScoringContainer } from './components/scoring/ScoringContainer';
+import { JudgePortal } from './components/scoring/JudgePortal';
+import { StageMode } from './components/scoring/StageMode';
 import { SmsModal } from './components/SmsModal';
 import { AddParticipantsModal } from './components/AddParticipantsModal';
-
-const STORAGE_KEY_PARTICIPANTS = 'bootcamp_live_participants_v2';
-const STORAGE_KEY_TEAMS = 'bootcamp_live_teams_v2';
-const STORAGE_KEY_SETTINGS = 'bootcamp_live_settings_v2';
+import { AlertTriangle } from 'lucide-react';
 
 export default function App() {
-  // Load initial state from LocalStorage or defaults
-  const [participants, setParticipants] = useState<Participant[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_PARTICIPANTS);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return SAMPLE_BOOTCAMP_PARTICIPANTS;
-  });
+  const { state, dispatch } = useAppStore();
+  const { participants, teams, draftLog, settings } = state;
+  const { mode, displaySize, displayTheme } = settings;
 
-  const [teams, setTeams] = useState<BootcampTeam[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_TEAMS);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return createInitialBootcampTeams(4);
-  });
-
-  const [mode, setMode] = useState<AppMode>('simple');
-  const [displaySize, setDisplaySize] = useState<DisplaySize>('projector');
-  const [displayTheme, setDisplayTheme] = useState<DisplayTheme>('dark-neon');
-  const [draftLog, setDraftLog] = useState<DraftLogItem[]>([]);
-
-  // Modals
+  // Modals state
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+  const [smsInitialFormat, setSmsInitialFormat] = useState<'ultra_cheap' | 'compact' | 'standard' | 'result'>('ultra_cheap');
+  const [smsResultsMap, setSmsResultsMap] = useState<Record<string, { rank: number; totalTeams: number; grandTotal: number }> | undefined>(undefined);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTeamForSms, setSelectedTeamForSms] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [pendingTeamCountReduction, setPendingTeamCountReduction] = useState<{
+    newCount: number;
+    teamsWithScores: string[];
+  } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Sync to LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_PARTICIPANTS, JSON.stringify(participants));
-    } catch {}
-  }, [participants]);
+  const handleOpenSmsResults = (map: Record<string, { rank: number; totalTeams: number; grandTotal: number }>) => {
+    setSmsResultsMap(map);
+    setSmsInitialFormat('result');
+    setSelectedTeamForSms(null);
+    setIsSmsModalOpen(true);
+  };
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_TEAMS, JSON.stringify(teams));
-    } catch {}
-  }, [teams]);
+  // Selectors
+  const unassigned = getUnassignedParticipants(state);
+  const teamMembersMap = getAllTeamMembersMap(state);
 
-  // Derived: All assigned participant IDs
-  const assignedParticipantIds = new Set<string>();
-  teams.forEach((t) => t.members.forEach((m) => assignedParticipantIds.add(m.id)));
-
-  // Unassigned participants pool
-  const unassigned = participants.filter((p) => !assignedParticipantIds.has(p.id));
-
-  // Check if draft just completed to fire celebratory confetti
+  // Celebratory confetti when drafting completes or auto-fill finishes
   const triggerCelebration = () => {
     sound.playFanfare();
     confetti({
@@ -110,54 +94,35 @@ export default function App() {
     const targetTeam = teams.find((t) => t.id === teamId);
     if (!participant || !targetTeam) return;
 
-    // Check if already in target team
-    if (targetTeam.members.some((m) => m.id === participantId)) return;
+    if (targetTeam.memberIds.includes(participantId)) return;
 
-    // Remove from any current team
-    const updatedTeams = teams.map((team) => {
-      const filteredMembers = team.members.filter((m) => m.id !== participantId);
-      if (team.id === teamId) {
-        return {
-          ...team,
-          members: [...filteredMembers, participant],
-        };
-      }
-      return {
-        ...team,
-        members: filteredMembers,
-      };
+    const previousTeam = teams.find((t) => t.memberIds.includes(participantId));
+
+    const now = new Date();
+    const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    const logId = `log-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+    dispatch({
+      type: 'ASSIGN_TO_TEAM',
+      payload: {
+        participantId,
+        teamId,
+        logId,
+        timestamp,
+      },
     });
 
-    setTeams(updatedTeams);
+    sound.playFanfare();
 
-    // Toast feedback
-    const previousTeam = teams.find((t) => t.members.some((m) => m.id === participantId));
     if (previousTeam) {
       showToast(`${participant.name} از «${previousTeam.name}» به «${targetTeam.name}» منتقل شد`);
     } else {
       showToast(`${participant.name} به «${targetTeam.name}» ملحق شد`);
     }
 
-    // Draft log item
-    const isLeader = targetTeam.members.length === 0;
-    const now = new Date();
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-
-    setDraftLog((prev) => [
-      {
-        id: `log-${Date.now()}`,
-        timestamp: timeStr,
-        participantName: participant.name,
-        teamName: targetTeam.name,
-        teamColor: targetTeam.color,
-        isLeader,
-      },
-      ...prev,
-    ]);
-
-    // Check if that was the last participant
-    const remainingAfterThis = unassigned.filter((p) => p.id !== participantId).length;
-    if (remainingAfterThis === 0) {
+    // If that was the last participant
+    const remainingCount = unassigned.filter((p) => p.id !== participantId).length;
+    if (remainingCount === 0) {
       triggerCelebration();
     }
   };
@@ -165,31 +130,24 @@ export default function App() {
   // Remove member from team back to unassigned
   const handleRemoveMember = (teamId: string, participantId: string) => {
     const participant = participants.find((p) => p.id === participantId);
-    setTeams((prevTeams) =>
-      prevTeams.map((team) => {
-        if (team.id === teamId) {
-          return {
-            ...team,
-            members: team.members.filter((m) => m.id !== participantId),
-          };
-        }
-        return team;
-      })
-    );
+    dispatch({
+      type: 'REMOVE_MEMBER',
+      payload: { teamId, participantId },
+    });
+    sound.playClick();
     if (participant) {
       showToast(`${participant.name} به سالن بازگشت`);
     }
   };
 
-  // Return member from any team directly to hall (e.g. via drop on roster)
+  // Return member from any team directly to hall (e.g. drop on roster)
   const handleReturnToHall = (participantId: string) => {
     const participant = participants.find((p) => p.id === participantId);
-    setTeams((prevTeams) =>
-      prevTeams.map((team) => ({
-        ...team,
-        members: team.members.filter((m) => m.id !== participantId),
-      }))
-    );
+    dispatch({
+      type: 'RETURN_TO_HALL',
+      payload: { participantId },
+    });
+    sound.playPop();
     if (participant) {
       showToast(`${participant.name} به سالن بازگردانده شد`);
     }
@@ -197,21 +155,11 @@ export default function App() {
 
   // Promote a member to leader (index 0)
   const handlePromoteToLeader = (teamId: string, participantId: string) => {
-    setTeams((prevTeams) =>
-      prevTeams.map((team) => {
-        if (team.id === teamId) {
-          const memberIndex = team.members.findIndex((m) => m.id === participantId);
-          if (memberIndex <= 0) return team;
-          const member = team.members[memberIndex];
-          const remaining = team.members.filter((m) => m.id !== participantId);
-          return {
-            ...team,
-            members: [member, ...remaining],
-          };
-        }
-        return team;
-      })
-    );
+    dispatch({
+      type: 'PROMOTE_LEADER',
+      payload: { teamId, participantId },
+    });
+    sound.playPop();
   };
 
   // Auto-fill remaining unassigned members randomly into teams
@@ -219,36 +167,44 @@ export default function App() {
     if (unassigned.length === 0 || teams.length === 0) return;
 
     const shuffled = shuffleArray(unassigned);
-    const newTeams = teams.map((t) => ({ ...t, members: [...t.members] }));
+    const teamCounts = teams.map((t) => ({ id: t.id, count: t.memberIds.length }));
+    const assignments: Array<{ participantId: string; teamId: string }> = [];
 
     // Greedy round-robin into teams with lowest member count
     shuffled.forEach((participant) => {
-      // Find team with minimum members
-      let minTeamIndex = 0;
-      let minCount = Infinity;
-      for (let i = 0; i < newTeams.length; i++) {
-        if (newTeams[i].members.length < minCount) {
-          minCount = newTeams[i].members.length;
-          minTeamIndex = i;
+      let minTeam = teamCounts[0];
+      for (let i = 1; i < teamCounts.length; i++) {
+        if (teamCounts[i].count < minTeam.count) {
+          minTeam = teamCounts[i];
         }
       }
-      newTeams[minTeamIndex].members.push(participant);
+      assignments.push({ participantId: participant.id, teamId: minTeam.id });
+      minTeam.count++;
     });
 
-    setTeams(newTeams);
+    dispatch({
+      type: 'AUTO_FILL',
+      payload: { assignments },
+    });
+
     triggerCelebration();
+    showToast('تمامی افراد باقی‌مانده در تیم‌ها توزیع شدند');
   };
 
-  // Update team data (name, color, phone)
+  // Update team data
   const handleUpdateTeam = (updatedTeam: BootcampTeam) => {
-    setTeams((prev) => prev.map((t) => (t.id === updatedTeam.id ? updatedTeam : t)));
+    dispatch({
+      type: 'UPDATE_TEAM',
+      payload: updatedTeam,
+    });
   };
 
-  // Update leader phone from SMS modal
-  const handleUpdateTeamPhone = (teamId: string, phone: string) => {
-    setTeams((prev) =>
-      prev.map((t) => (t.id === teamId ? { ...t, leaderPhone: phone } : t))
-    );
+  // Update a participant's phone (e.g. when editing leader phone)
+  const handleUpdateParticipantPhone = (participantId: string, phone: string) => {
+    dispatch({
+      type: 'UPDATE_PARTICIPANT',
+      payload: { id: participantId, phone },
+    });
   };
 
   // Change team count dynamically (2 to 8)
@@ -256,7 +212,6 @@ export default function App() {
     if (newCount < 2 || newCount > 8) return;
 
     if (newCount > teams.length) {
-      // Add teams
       const additional: BootcampTeam[] = [];
       for (let i = teams.length; i < newCount; i++) {
         const palette = TEAM_COLOR_PALETTES[i % TEAM_COLOR_PALETTES.length];
@@ -268,33 +223,127 @@ export default function App() {
           borderColor: palette.borderColor,
           textColor: palette.textColor,
           tableNumber: palette.defaultTable,
-          leaderPhone: '',
-          members: [],
+          memberIds: [],
           score: 0,
         });
       }
-      setTeams([...teams, ...additional]);
+      dispatch({
+        type: 'SET_TEAMS_COUNT',
+        payload: { newCount, newTeams: additional },
+      });
     } else if (newCount < teams.length) {
-      // Remove teams, returning their members to unassigned
-      const kept = teams.slice(0, newCount);
-      setTeams(kept);
+      const removedTeams = teams.slice(newCount);
+
+      const scoredTeamNames = removedTeams
+        .filter((t) => {
+          const hasScore = Object.values(state.scoring.scores).some(
+            (s) => s && s.teamId === t.id && s.value !== null && s.value !== undefined
+          );
+          const hasNote = Object.values(state.scoring.notes).some(
+            (n) => n && n.teamId === t.id && n.text && n.text.trim().length > 0
+          );
+          const hasAdj = state.scoring.adjustments.some((a) => a.teamId === t.id);
+          return hasScore || hasNote || hasAdj;
+        })
+        .map((t) => t.name);
+
+      if (scoredTeamNames.length > 0) {
+        setPendingTeamCountReduction({
+          newCount,
+          teamsWithScores: scoredTeamNames,
+        });
+      } else {
+        dispatch({
+          type: 'SET_TEAMS_COUNT',
+          payload: { newCount },
+        });
+        sound.playPop();
+      }
     }
   };
 
   // Reset only the draft placements (everyone back to unassigned)
   const handleResetDraft = () => {
-    setTeams((prev) => prev.map((t) => ({ ...t, members: [] })));
-    setDraftLog([]);
+    dispatch({ type: 'RESET_DRAFT' });
     showToast('یارکشی با موفقیت ریست شد و تمامی افراد به سالن بازگشتند');
   };
 
   // Reset everything (clear all participants)
   const handleResetEverything = () => {
-    setParticipants([]);
-    setTeams(createInitialBootcampTeams(4));
-    setDraftLog([]);
-    showToast('لیست اسامی پاکسازی شد');
+    dispatch({
+      type: 'RESET_ALL',
+      payload: { initialTeams: createInitialBootcampTeams(4) },
+    });
+    showToast('تمامی اسامی و تیم‌ها پاکسازی شدند');
   };
+
+  // Add participants
+  const handleAddParticipants = (newParticipants: Participant[]) => {
+    dispatch({
+      type: 'ADD_PARTICIPANTS',
+      payload: { participants: newParticipants },
+    });
+    showToast(`${toPersianDigits(newParticipants.length)} نفر به لیست افزوده شدند`);
+  };
+
+  // Remove participant
+  const handleRemoveParticipant = (participantId: string) => {
+    dispatch({
+      type: 'REMOVE_PARTICIPANT',
+      payload: { participantId },
+    });
+  };
+
+  // Replace participants (e.g. from preset)
+  const handleReplaceParticipants = (newParticipants: Participant[]) => {
+    dispatch({
+      type: 'REPLACE_PARTICIPANTS',
+      payload: { participants: newParticipants },
+    });
+    showToast('لیست نمونه اسامی با موفقیت جایگزین شد');
+  };
+
+  // Settings helpers
+  const handleModeChange = (newMode: AppMode) => {
+    dispatch({ type: 'SET_SETTINGS', payload: { mode: newMode } });
+  };
+
+  const handleDisplaySizeChange = (newSize: DisplaySize) => {
+    dispatch({ type: 'SET_SETTINGS', payload: { displaySize: newSize } });
+  };
+
+  const handleDisplayThemeChange = (newTheme: DisplayTheme) => {
+    dispatch({ type: 'SET_SETTINGS', payload: { displayTheme: newTheme } });
+  };
+
+  // Backup download & restore
+  const handleDownloadBackup = () => {
+    downloadBackupJson(state);
+    showToast('فایل پشتیبان با موفقیت دانلود شد');
+  };
+
+  const handleRestoreBackup = (importedState: AppState) => {
+    dispatch({
+      type: 'IMPORT_BACKUP',
+      payload: { state: importedState },
+    });
+    showToast('اطلاعات با موفقیت از فایل پشتیبان بازیابی شد');
+  };
+
+  // Check if URL has ?judge=1 to render ONLY the judge screen
+  const isJudgeMode = typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).get('judge') === '1' ||
+    window.location.search.includes('judge=1')
+  );
+
+  if (isJudgeMode) {
+    return <JudgePortal state={state} dispatch={dispatch} />;
+  }
+
+  // Fullscreen Stage mode for Projector / Auditorium screen
+  if (mode === 'stage') {
+    return <StageMode state={state} dispatch={dispatch} />;
+  }
 
   return (
     <div className={`min-h-screen flex flex-col font-['Vazirmatn',sans-serif] selection:bg-cyan-500 selection:text-slate-950 transition-colors ${
@@ -306,30 +355,42 @@ export default function App() {
       {/* Top Navigation & Projector Controls */}
       <DatashowHeader
         mode={mode}
-        onModeChange={setMode}
+        onModeChange={handleModeChange}
         displaySize={displaySize}
-        onDisplaySizeChange={setDisplaySize}
+        onDisplaySizeChange={handleDisplaySizeChange}
         displayTheme={displayTheme}
-        onDisplayThemeChange={setDisplayTheme}
+        onDisplayThemeChange={handleDisplayThemeChange}
         teamsCount={teams.length}
         onTeamsCountChange={handleTeamsCountChange}
         unassignedCount={unassigned.length}
         totalParticipants={participants.length}
         onOpenSmsModal={() => {
           setSelectedTeamForSms(null);
+          setSmsResultsMap(undefined);
+          setSmsInitialFormat('ultra_cheap');
           setIsSmsModalOpen(true);
         }}
         onOpenParticipantsModal={() => setIsAddModalOpen(true)}
         onAutoFillRemaining={handleAutoFillRemaining}
         onResetDraft={handleResetDraft}
+        onDownloadBackup={handleDownloadBackup}
+        onRestoreBackup={handleRestoreBackup}
       />
 
-      {/* Main View Area: Either Simple Draft or Advanced Mode */}
+      {/* Main View Area: Simple Draft, Advanced Dashboard, or Scoring Mode */}
       <main className="flex-1 flex flex-col min-h-0">
-        {mode === 'simple' ? (
+        {mode === 'scoring' ? (
+          <ScoringContainer
+            state={state}
+            dispatch={dispatch}
+            onShowToast={showToast}
+            onOpenSmsResultModal={handleOpenSmsResults}
+          />
+        ) : mode === 'simple' ? (
           <SimpleDraftView
             unassigned={unassigned}
             teams={teams}
+            teamMembersMap={teamMembersMap}
             displaySize={displaySize}
             onAssignToTeam={handleAssignToTeam}
             onUpdateTeam={handleUpdateTeam}
@@ -342,11 +403,13 @@ export default function App() {
             }}
             onAutoFillRemaining={handleAutoFillRemaining}
             onReturnToHall={handleReturnToHall}
+            onUpdateParticipantPhone={handleUpdateParticipantPhone}
           />
         ) : (
           <AdvancedDashboard
             unassigned={unassigned}
             teams={teams}
+            teamMembersMap={teamMembersMap}
             displaySize={displaySize}
             draftLog={draftLog}
             onAssignToTeam={handleAssignToTeam}
@@ -360,17 +423,65 @@ export default function App() {
             }}
             onAutoFillRemaining={handleAutoFillRemaining}
             onReturnToHall={handleReturnToHall}
+            onUpdateParticipantPhone={handleUpdateParticipantPhone}
           />
         )}
       </main>
+
+      {/* Team Reduction Warning Modal */}
+      {pendingTeamCountReduction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-md p-5 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-slate-100">هشدار کاهش تعداد تیم‌ها</h4>
+                <p className="text-xs text-slate-400">حذف امتیازات تیم‌های در حال حذف</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              تیم(های) «{pendingTeamCountReduction.teamsWithScores.join('، ')}» دارای امتیازات یا یادداشت‌های داوری ثبت‌شده هستند. با کاهش تعداد تیم‌ها به {toPersianDigits(pendingTeamCountReduction.newCount)} تیم، کلیه نمرات و داده‌های این تیم‌ها پاک خواهد شد. آیا مطمئن هستید؟
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setPendingTeamCountReduction(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white cursor-pointer"
+              >
+                انصراف
+              </button>
+              <button
+                onClick={() => {
+                  dispatch({
+                    type: 'SET_TEAMS_COUNT',
+                    payload: { newCount: pendingTeamCountReduction.newCount },
+                  });
+                  sound.playPop();
+                  setPendingTeamCountReduction(null);
+                  showToast('تعداد تیم‌ها کاهش یافت و نمرات تیم‌های حذف‌شده پاک شد');
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-500 hover:bg-rose-400 text-white shadow-md shadow-rose-500/20 cursor-pointer"
+              >
+                تأیید و کاهش تیم‌ها
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SMS Generator Modal */}
       <SmsModal
         isOpen={isSmsModalOpen}
         onClose={() => setIsSmsModalOpen(false)}
         teams={teams}
-        onUpdateTeamPhone={handleUpdateTeamPhone}
+        teamMembersMap={teamMembersMap}
+        onUpdateParticipantPhone={handleUpdateParticipantPhone}
         selectedTeamId={selectedTeamForSms}
+        initialFormat={smsInitialFormat}
+        resultsMap={smsResultsMap}
       />
 
       {/* Participant Manager & Bulk Add Modal */}
@@ -378,14 +489,16 @@ export default function App() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         participants={participants}
-        onSetParticipants={setParticipants}
+        onAddParticipants={handleAddParticipants}
+        onRemoveParticipant={handleRemoveParticipant}
+        onReplaceParticipants={handleReplaceParticipants}
         onResetEverything={handleResetEverything}
       />
 
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 border border-cyan-500/80 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs sm:text-sm font-bold backdrop-blur-md animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}

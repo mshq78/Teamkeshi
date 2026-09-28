@@ -105,8 +105,7 @@ export function createInitialBootcampTeams(count = 4): BootcampTeam[] {
       borderColor: palette.borderColor,
       textColor: palette.textColor,
       tableNumber: palette.defaultTable,
-      leaderPhone: '',
-      members: [],
+      memberIds: [],
       score: 0,
     };
   });

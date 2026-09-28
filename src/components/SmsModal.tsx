@@ -6,13 +6,10 @@ import {
   Check, 
   Download, 
   Send, 
-  Sparkles, 
-  ShieldCheck, 
   Phone, 
-  ExternalLink,
-  Share2
+  AlertCircle
 } from 'lucide-react';
-import { BootcampTeam } from '../types';
+import { BootcampTeam, Participant } from '../types';
 import { 
   calculateSmsParts, 
   generateTeamSms, 
@@ -20,48 +17,75 @@ import {
   exportToTextFile, 
   toPersianDigits 
 } from '../utils/persian';
+import { copyTextToClipboard } from '../utils/clipboard';
 import { sound } from '../utils/sound';
 
 interface SmsModalProps {
   isOpen: boolean;
   onClose: () => void;
   teams: BootcampTeam[];
-  onUpdateTeamPhone: (teamId: string, phone: string) => void;
+  teamMembersMap: Map<string, Participant[]>;
+  onUpdateParticipantPhone: (participantId: string, phone: string) => void;
   selectedTeamId?: string | null;
+  initialFormat?: 'ultra_cheap' | 'compact' | 'standard' | 'result';
+  resultsMap?: Record<string, { rank: number; totalTeams: number; grandTotal: number }>;
 }
 
 export const SmsModal: React.FC<SmsModalProps> = ({
   isOpen,
   onClose,
   teams,
-  onUpdateTeamPhone,
+  teamMembersMap,
+  onUpdateParticipantPhone,
   selectedTeamId = null,
+  initialFormat = 'ultra_cheap',
+  resultsMap,
 }) => {
-  const [format, setFormat] = useState<'ultra_cheap' | 'compact' | 'standard'>('ultra_cheap');
+  const [format, setFormat] = useState<'ultra_cheap' | 'compact' | 'standard' | 'result'>(initialFormat);
   const [bootcampName, setBootcampName] = useState('بوت‌کمپ');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedBatch, setCopiedBatch] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  // Sync format if initialFormat changes
+  React.useEffect(() => {
+    if (initialFormat) {
+      setFormat(initialFormat);
+    }
+  }, [initialFormat]);
 
   if (!isOpen) return null;
 
-  const handleCopyText = (text: string, id: string) => {
+  const handleCopyText = async (text: string, id: string) => {
     sound.playClick();
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    const ok = await copyTextToClipboard(text);
+    if (ok) {
+      setCopiedId(id);
+      setCopyError(null);
+      setTimeout(() => setCopiedId(null), 2000);
+    } else {
+      setCopyError('خطا در کپی متن در حافظه');
+      setTimeout(() => setCopyError(null), 3000);
+    }
   };
 
-  const handleCopyBatch = () => {
+  const handleCopyBatch = async () => {
     sound.playClick();
-    const batch = generateAllTeamsSmsBatch(teams, format, bootcampName);
-    navigator.clipboard.writeText(batch);
-    setCopiedBatch(true);
-    setTimeout(() => setCopiedBatch(false), 2000);
+    const batch = generateAllTeamsSmsBatch(teams, teamMembersMap, format, bootcampName, resultsMap);
+    const ok = await copyTextToClipboard(batch);
+    if (ok) {
+      setCopiedBatch(true);
+      setCopyError(null);
+      setTimeout(() => setCopiedBatch(false), 2000);
+    } else {
+      setCopyError('خطا در کپی متن در حافظه');
+      setTimeout(() => setCopyError(null), 3000);
+    }
   };
 
   const handleDownloadFile = () => {
     sound.playFanfare();
-    const batch = generateAllTeamsSmsBatch(teams, format, bootcampName);
+    const batch = generateAllTeamsSmsBatch(teams, teamMembersMap, format, bootcampName, resultsMap);
     exportToTextFile(batch, `bootcamp-teams-sms-${format}.txt`);
   };
 
@@ -69,7 +93,6 @@ export const SmsModal: React.FC<SmsModalProps> = ({
     sound.playClick();
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     const encoded = encodeURIComponent(text);
-    // Standard SMS scheme
     window.location.href = `sms:${cleanPhone}?body=${encoded}`;
   };
 
@@ -123,7 +146,7 @@ export const SmsModal: React.FC<SmsModalProps> = ({
                   : 'text-slate-300 hover:text-white'
               }`}
             >
-              🚀 فوق‌فشرده (۱ پیامک = زیر ۷۰ کاراکتر)
+              🚀 فوق‌فشرده (کمترین کاراکتر)
             </button>
             <button
               onClick={() => {
@@ -151,6 +174,19 @@ export const SmsModal: React.FC<SmsModalProps> = ({
             >
               📋 رسمی و کامل
             </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                setFormat('result');
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                format === 'result'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              🏆 نتیجه مسابقات (رتبه و نمره)
+            </button>
           </div>
 
           {/* Title input */}
@@ -160,22 +196,64 @@ export const SmsModal: React.FC<SmsModalProps> = ({
               type="text"
               value={bootcampName}
               onChange={(e) => setBootcampName(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-cyan-400 w-32"
+              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-cyan-400 font-bold w-32"
             />
           </div>
         </div>
 
+        {/* Global Action Bar: Copy All / Download All */}
+        <div className="px-4 py-3 bg-slate-950/40 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="text-slate-400">
+            <span>تعداد کل تیم‌ها: <strong className="text-white">{toPersianDigits(teams.length)} تیم</strong></span>
+            {copyError && (
+              <span className="mr-3 text-rose-400 font-bold flex items-center gap-1 inline-flex">
+                <AlertCircle className="w-3.5 h-3.5" />
+                <span>{copyError}</span>
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyBatch}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 transition-colors font-bold cursor-pointer"
+            >
+              {copiedBatch ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-emerald-300">کل پیامک‌ها کپی شد!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                  <span>کپی یکجای کل تیم‌ها (برای سامانه پیامک انبوه)</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleDownloadFile}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold transition-colors shadow-md shadow-cyan-600/20 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>دانلود فایل متنی</span>
+            </button>
+          </div>
+        </div>
+
         {/* Teams List */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
-          {teams.map((team, index) => {
-            const leader = team.members[0];
-            const leaderPhone = team.leaderPhone || (leader?.phone) || '';
-            const smsText = generateTeamSms(team, format, bootcampName);
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          {teams.map((team) => {
+            const members = teamMembersMap.get(team.id) || [];
+            const leader = members[0];
+            const leaderPhone = leader?.phone || '';
+            const resInfo = resultsMap ? resultsMap[team.id] : undefined;
+            const smsText = generateTeamSms(team, members, format, bootcampName, resInfo);
             const { length, parts, isUnderOnePart } = calculateSmsParts(smsText);
             const isTargeted = selectedTeamId === team.id;
 
             return (
-              <div
+              <div 
                 key={team.id}
                 className={`rounded-2xl border transition-all p-4 ${
                   isTargeted
@@ -223,9 +301,14 @@ export const SmsModal: React.FC<SmsModalProps> = ({
                     type="text"
                     dir="ltr"
                     value={leaderPhone}
-                    onChange={(e) => onUpdateTeamPhone(team.id, e.target.value)}
-                    placeholder="مثلاً: 09121234567"
-                    className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-0.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono w-40"
+                    disabled={!leader}
+                    onChange={(e) => {
+                      if (leader) {
+                        onUpdateParticipantPhone(leader.id, e.target.value);
+                      }
+                    }}
+                    placeholder={leader ? "مثلاً: 09121234567" : "ابتدا سرگروه تعیین کنید"}
+                    className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-0.5 text-xs text-white focus:outline-none focus:border-cyan-400 font-mono w-40 disabled:opacity-50"
                   />
                   <span className="text-[11px] text-slate-500 mr-auto">
                     {leaderPhone ? 'آماده ارسال' : 'وارد کردن شماره برای ارسال مستقیم ضروری است'}
@@ -247,7 +330,7 @@ export const SmsModal: React.FC<SmsModalProps> = ({
                     {/* Copy Button */}
                     <button
                       onClick={() => handleCopyText(smsText, team.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 transition-colors cursor-pointer"
                     >
                       {copiedId === team.id ? (
                         <>
@@ -288,7 +371,7 @@ export const SmsModal: React.FC<SmsModalProps> = ({
           <div className="flex items-center gap-2.5">
             <button
               onClick={handleDownloadFile}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition-colors cursor-pointer"
             >
               <Download className="w-4 h-4 text-cyan-400" />
               <span>دانلود فایل متنی (.txt)</span>

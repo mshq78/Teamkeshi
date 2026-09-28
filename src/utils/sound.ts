@@ -156,6 +156,51 @@ class SoundFX {
     osc.start();
     osc.stop(ctx.currentTime + 0.03);
   }
+
+  playDrumroll(duration = 2.0) {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const startTime = ctx.currentTime;
+    const hitInterval = 0.055;
+    const totalHits = Math.floor(duration / hitInterval);
+
+    for (let i = 0; i < totalHits; i++) {
+      const hitTime = startTime + i * hitInterval;
+      const progress = i / totalHits;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(110 + Math.random() * 40 + progress * 70, hitTime);
+      osc.frequency.exponentialRampToValueAtTime(50, hitTime + 0.04);
+
+      const hitVol = 0.04 + progress * 0.22;
+      gain.gain.setValueAtTime(hitVol, hitTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, hitTime + 0.04);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(hitTime);
+      osc.stop(hitTime + 0.04);
+    }
+
+    // Final accented hit
+    const finishTime = startTime + duration;
+    const finalOsc = ctx.createOscillator();
+    const finalGain = ctx.createGain();
+    finalOsc.type = 'triangle';
+    finalOsc.frequency.setValueAtTime(220, finishTime);
+    finalOsc.frequency.exponentialRampToValueAtTime(70, finishTime + 0.25);
+    finalGain.gain.setValueAtTime(0.35, finishTime);
+    finalGain.gain.exponentialRampToValueAtTime(0.001, finishTime + 0.25);
+    finalOsc.connect(finalGain);
+    finalGain.connect(ctx.destination);
+    finalOsc.start(finishTime);
+    finalOsc.stop(finishTime + 0.25);
+  }
 }
 
 export const sound = new SoundFX();
