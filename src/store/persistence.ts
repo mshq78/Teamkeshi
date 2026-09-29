@@ -1,5 +1,5 @@
 import { AppState, INITIAL_STATE, INITIAL_SETTINGS, INITIAL_SCORING } from './state';
-import { Participant, BootcampTeam, ScoringState } from '../types';
+import { Participant, BootcampTeam, ScoringState, RunArchive, RunArchiveTeam } from '../types';
 
 export const STORAGE_KEY_V3 = 'teamkeshi_state_v3';
 
@@ -21,11 +21,41 @@ interface OldTeamFormat {
   score?: number;
 }
 
+export function sanitizeRuns(rawRuns: unknown): RunArchive[] {
+  if (!Array.isArray(rawRuns)) return [];
+  const valid: RunArchive[] = [];
+  for (const item of rawRuns) {
+    if (!item || typeof item !== 'object') continue;
+    const r = item as Record<string, unknown>;
+    if (
+      typeof r.id === 'string' &&
+      typeof r.name === 'string' &&
+      typeof r.startedAt === 'string' &&
+      typeof r.endedAt === 'string' &&
+      Array.isArray(r.teams)
+    ) {
+      valid.push({
+        id: r.id,
+        name: r.name,
+        startedAt: r.startedAt,
+        endedAt: r.endedAt,
+        eventNames: r.eventNames && typeof r.eventNames === 'object' ? (r.eventNames as Record<string, string>) : {},
+        judgesCount: typeof r.judgesCount === 'number' ? r.judgesCount : 0,
+        teams: r.teams as RunArchiveTeam[],
+      });
+    }
+  }
+  return valid;
+}
+
 function sanitizeScoring(rawScoring?: Partial<ScoringState>): ScoringState {
   if (!rawScoring || typeof rawScoring !== 'object') {
     return INITIAL_SCORING;
   }
   return {
+    runId: typeof rawScoring.runId === 'string' ? rawScoring.runId : 'run-1',
+    runName: typeof rawScoring.runName === 'string' ? rawScoring.runName : '',
+    runStartedAt: typeof rawScoring.runStartedAt === 'string' ? rawScoring.runStartedAt : '',
     events: Array.isArray(rawScoring.events) ? rawScoring.events : [],
     judges: Array.isArray(rawScoring.judges) ? rawScoring.judges : [],
     scores: rawScoring.scores && typeof rawScoring.scores === 'object' ? rawScoring.scores : {},
@@ -78,6 +108,7 @@ export function loadState(storageKey: string = STORAGE_KEY_V3): AppState {
           draftLog: Array.isArray(parsed.draftLog) ? parsed.draftLog : [],
           settings: parsed.settings || INITIAL_SETTINGS,
           scoring: sanitizeScoring(parsed.scoring),
+          runs: sanitizeRuns(parsed.runs),
         };
 
         if (parsed.schemaVersion !== 4) {
@@ -175,6 +206,7 @@ export function loadState(storageKey: string = STORAGE_KEY_V3): AppState {
         draftLog: [],
         settings,
         scoring: INITIAL_SCORING,
+        runs: [],
       };
 
       // Save migrated state to new storage key

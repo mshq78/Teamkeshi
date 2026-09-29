@@ -11,6 +11,8 @@ import { IndicatorFormModal } from './IndicatorFormModal';
 import { JudgeFormModal } from './JudgeFormModal';
 import { ExcelImportModal } from './ExcelImportModal';
 import { JudgeQrModal } from './JudgeQrModal';
+import { NewRunModal } from './NewRunModal';
+import { RunArchiveModal } from './RunArchiveModal';
 import {
   Calendar,
   Plus,
@@ -33,14 +35,17 @@ import {
   Eye,
   EyeOff,
   Flame,
+  PlayCircle,
+  FolderArchive,
 } from 'lucide-react';
 
 interface ScoringSetupViewProps {
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
+  onShowToast?: (message: string) => void;
 }
 
-export const ScoringSetupView: React.FC<ScoringSetupViewProps> = ({ state, dispatch }) => {
+export const ScoringSetupView: React.FC<ScoringSetupViewProps> = ({ state, dispatch, onShowToast }) => {
   const { events, judges, settings } = state.scoring;
 
   // Modals state
@@ -51,6 +56,8 @@ export const ScoringSetupView: React.FC<ScoringSetupViewProps> = ({ state, dispa
   } | null>(null);
   const [editingJudge, setEditingJudge] = useState<Judge | null | 'new'>(null);
   const [isQrOpen, setIsQrOpen] = useState(false);
+  const [isNewRunModalOpen, setIsNewRunModalOpen] = useState(false);
+  const [isRunArchiveModalOpen, setIsRunArchiveModalOpen] = useState(false);
 
   // Deletion confirms
   const [confirmDeleteEvent, setConfirmDeleteEvent] = useState<ScoringEvent | null>(null);
@@ -257,6 +264,31 @@ export const ScoringSetupView: React.FC<ScoringSetupViewProps> = ({ state, dispa
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Start New Run Button */}
+          <button
+            onClick={() => setIsNewRunModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all cursor-pointer"
+            title="آرشیو اجرای فعلی و شروع دوره جدید"
+          >
+            <PlayCircle className="w-4 h-4 text-amber-400" />
+            <span>شروع اجرای جدید</span>
+          </button>
+
+          {/* Past Runs Archive Button */}
+          <button
+            onClick={() => setIsRunArchiveModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 transition-all cursor-pointer"
+            title="مشاهده آرشیو دوره‌ها و اجراهای قبلی"
+          >
+            <FolderArchive className="w-4 h-4 text-cyan-400" />
+            <span>آرشیو اجراها</span>
+            {state.runs && state.runs.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-500 text-slate-950">
+                {toPersianDigits(state.runs.length)}
+              </span>
+            )}
+          </button>
+
           {/* Preset Button */}
           <button
             onClick={handleLoadPreset}
@@ -1056,6 +1088,28 @@ export const ScoringSetupView: React.FC<ScoringSetupViewProps> = ({ state, dispa
           </div>
         </div>
       )}
+
+      {/* 8. New Run Modal */}
+      <NewRunModal
+        isOpen={isNewRunModalOpen}
+        onClose={() => setIsNewRunModalOpen(false)}
+        state={state}
+        dispatch={dispatch}
+        onSuccess={(msg) => {
+          if (onShowToast) onShowToast(msg);
+        }}
+      />
+
+      {/* 9. Past Runs Archive Modal */}
+      <RunArchiveModal
+        isOpen={isRunArchiveModalOpen}
+        onClose={() => setIsRunArchiveModalOpen(false)}
+        state={state}
+        dispatch={dispatch}
+        onSuccess={(msg) => {
+          if (onShowToast) onShowToast(msg);
+        }}
+      />
     </div>
   );
 };

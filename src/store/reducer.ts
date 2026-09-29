@@ -591,6 +591,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           scores: {
             ...state.scoring.scores,
             [key]: {
+              runId: state.scoring.runId,
               judgeId,
               teamId,
               eventId,
@@ -614,6 +615,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           notes: {
             ...state.scoring.notes,
             [key]: {
+              runId: state.scoring.runId,
               judgeId,
               teamId,
               eventId,
@@ -651,6 +653,61 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           ...state.scoring,
           adjustments: state.scoring.adjustments.filter((a) => a.id !== targetId),
         },
+      };
+    }
+
+    case 'START_NEW_RUN': {
+      const { newRunId, newRunName, nowIso, archive, clearParticipants } = action.payload;
+
+      // runs capped at newest 60
+      const updatedRuns = [archive, ...(state.runs || [])].slice(0, 60);
+
+      // participants: clear or strip pickedAt
+      const updatedParticipants = clearParticipants
+        ? []
+        : state.participants.map(({ pickedAt, ...rest }) => rest);
+
+      // every team memberIds = [] and score = 0
+      const updatedTeams = state.teams.map((t) => ({
+        ...t,
+        memberIds: [],
+        score: 0,
+      }));
+
+      // every event status = 'upcoming'
+      const updatedEvents = state.scoring.events.map((e) => ({
+        ...e,
+        status: 'upcoming' as const,
+      }));
+
+      return {
+        ...state,
+        participants: updatedParticipants,
+        teams: updatedTeams,
+        draftLog: [],
+        runs: updatedRuns,
+        scoring: {
+          ...state.scoring,
+          runId: newRunId,
+          runName: newRunName,
+          runStartedAt: nowIso,
+          events: updatedEvents,
+          scores: {},
+          notes: {},
+          adjustments: [],
+          settings: {
+            ...state.scoring.settings,
+            leaderboardFrozen: false,
+            frozenSnapshot: null,
+          },
+        },
+      };
+    }
+
+    case 'DELETE_RUN_ARCHIVE': {
+      return {
+        ...state,
+        runs: (state.runs || []).filter((r) => r.id !== action.payload.runId),
       };
     }
 

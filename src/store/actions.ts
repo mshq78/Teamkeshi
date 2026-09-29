@@ -11,6 +11,7 @@ import {
   ScoringSettings,
   TeamStanding,
   EventStatus,
+  RunArchive,
 } from '../types';
 import { AppState } from './state';
 
@@ -271,5 +272,21 @@ export type AppAction =
   | {
       type: 'SET_SCORING_SETTINGS';
       payload: Partial<ScoringSettings>;
+    }
+  | {
+      type: 'START_NEW_RUN';
+      payload: {
+        newRunId: string;
+        newRunName: string;
+        nowIso: string;
+        archive: RunArchive;
+        clearParticipants: boolean;
+      };
+    }
+  | {
+      type: 'DELETE_RUN_ARCHIVE';
+      payload: {
+        runId: string;
+      };
     };
 

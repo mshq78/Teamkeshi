@@ -65,14 +65,22 @@ export function pruneOrphans(state: AppState): AppState {
  * configuration wins, scores/notes are merged per key (last write wins).
  */
 export function mergeOperatorState(server: AppState, operator: AppState): AppState {
+  // A new run started on the operator side: the server's scores belong to the
+  // previous run and must not be merged back in.
+  const sameRun = (server.scoring.runId ?? 'run-1') === (operator.scoring.runId ?? 'run-1');
   return pruneOrphans({
     ...operator,
     scoring: {
       ...operator.scoring,
-      scores: mergeRecords(server.scoring.scores, operator.scoring.scores),
-      notes: mergeRecords(server.scoring.notes, operator.scoring.notes),
+      scores: sameRun ? mergeRecords(server.scoring.scores, operator.scoring.scores) : operator.scoring.scores,
+      notes: sameRun ? mergeRecords(server.scoring.notes, operator.scoring.notes) : operator.scoring.notes,
     },
   });
+}
+
+/** Entries stamped with another run are stale; entries without a stamp are treated as the first run. */
+export function isCurrentRun(state: AppState, entryRunId: string | undefined): boolean {
+  return (entryRunId ?? 'run-1') === (state.scoring.runId ?? 'run-1');
 }
 
 /**
@@ -90,13 +98,13 @@ export function applyJudgeOps(state: AppState, judgeId: string, ops: JudgeOp[]):
   for (const op of ops) {
     if (op.kind === 'score') {
       const e = op.entry;
-      if (e.judgeId !== judgeId || !allowed(e.eventId)) continue;
+      if (e.judgeId !== judgeId || !allowed(e.eventId) || !isCurrentRun(next, e.runId)) continue;
       const existing = next.scoring.scores[`${e.judgeId}|${e.teamId}|${e.indicatorId}`];
       if (existing && existing.updatedAt >= e.updatedAt) continue;
       next = appReducer(next, { type: 'SET_SCORE', payload: { ...e, source: 'judge' } });
     } else {
       const n = op.note;
-      if (n.judgeId !== judgeId || !allowed(n.eventId)) continue;
+      if (n.judgeId !== judgeId || !allowed(n.eventId) || !isCurrentRun(next, n.runId)) continue;
       const event = next.scoring.events.find((ev) => ev.id === n.eventId);
       if (!event || event.status === 'closed') continue;
       if (!next.teams.some((t) => t.id === n.teamId)) continue;
@@ -118,6 +126,7 @@ export function redactForJudge(state: AppState, judgeId: string): AppState {
   return {
     ...state,
     draftLog: [],
+    runs: [],
     scoring: {
       ...state.scoring,
       judges: state.scoring.judges.filter((j) => j.id === judgeId),

@@ -91,7 +91,11 @@ export const ScoringContainer: React.FC<ScoringContainerProps> = ({
 
       {/* Tab Content */}
       {activeTab === 'setup' && (
-        <ScoringSetupView state={state} dispatch={dispatch} />
+        <ScoringSetupView
+          state={state}
+          dispatch={dispatch}
+          onShowToast={onShowToast}
+        />
       )}
 
       {activeTab === 'judge_scores' && (

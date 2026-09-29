@@ -1,4 +1,4 @@
-import { Participant, BootcampTeam, DraftLogItem, AppSettings, ScoringState } from '../types';
+import { Participant, BootcampTeam, DraftLogItem, AppSettings, ScoringState, RunArchive } from '../types';
 import { SAMPLE_BOOTCAMP_PARTICIPANTS, createInitialBootcampTeams } from '../utils/defaultData';
 
 export interface AppState {
@@ -8,6 +8,7 @@ export interface AppState {
   draftLog: DraftLogItem[];
   settings: AppSettings;
   scoring: ScoringState;
+  runs?: RunArchive[];
 }
 
 export const INITIAL_SETTINGS: AppSettings = {
@@ -18,6 +19,9 @@ export const INITIAL_SETTINGS: AppSettings = {
 };
 
 export const INITIAL_SCORING: ScoringState = {
+  runId: 'run-1',
+  runName: '',
+  runStartedAt: '',
   events: [],
   judges: [],
   scores: {},
@@ -38,5 +42,6 @@ export const INITIAL_STATE: AppState = {
   draftLog: [],
   settings: INITIAL_SETTINGS,
   scoring: INITIAL_SCORING,
+  runs: [],
 };
 

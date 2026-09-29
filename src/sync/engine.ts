@@ -1,7 +1,7 @@
 import { AppState } from '../store/state';
 import { AppAction } from '../store/actions';
 import { appReducer } from '../store/reducer';
-import { JudgeOp, isAppStateLike, mergeOperatorState } from './merge';
+import { JudgeOp, isAppStateLike, isCurrentRun, mergeOperatorState } from './merge';
 
 /**
  * Browser-side sync engine.
@@ -185,10 +185,13 @@ class SyncEngine {
       this.setStatus({});
       this.kick(PUSH_DEBOUNCE_MS);
     } else if (this.role === 'judge') {
+      // Stamp with the run the judge is looking at, so a late upload can never
+      // land in a run that started afterwards.
+      const runId = this.getState ? this.getState().scoring.runId : undefined;
       if (action.type === 'SET_SCORE') {
-        this.enqueue({ kind: 'score', entry: { ...action.payload } });
+        this.enqueue({ kind: 'score', entry: { ...action.payload, runId } });
       } else if (action.type === 'SET_NOTE' || action.type === 'SET_SCORE_NOTE') {
-        this.enqueue({ kind: 'note', note: { ...action.payload } });
+        this.enqueue({ kind: 'note', note: { ...action.payload, runId } });
       }
     }
   }
@@ -363,6 +366,16 @@ class SyncEngine {
 
   /** Re-applies not-yet-acknowledged ops on top of a server snapshot. */
   private withPendingOps(state: AppState): AppState {
+    // A new run started on the operator side: queued scores of the previous
+    // run must not be sent (the server would reject them anyway).
+    const before = this.outbox.length;
+    this.outbox = this.outbox.filter((op) =>
+      isCurrentRun(state, op.kind === 'score' ? op.entry.runId : op.note.runId)
+    );
+    if (this.outbox.length !== before) {
+      lsSet(OUTBOX_STORAGE, JSON.stringify(this.outbox));
+      this.setStatus({});
+    }
     let next = state;
     for (const op of this.outbox) {
       next = op.kind === 'score'

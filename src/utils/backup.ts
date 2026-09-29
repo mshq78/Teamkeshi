@@ -1,5 +1,6 @@
 import { AppState, INITIAL_SCORING } from '../store/state';
-import { BootcampTeam, Participant, DraftLogItem, AppSettings, ScoringState } from '../types';
+import { BootcampTeam, Participant, DraftLogItem, AppSettings, ScoringState, RunArchive } from '../types';
+import { sanitizeRuns } from '../store/persistence';
 
 /**
  * Generates formatted backup filename: teamkeshi-backup-YYYY-MM-DD-HHmm.json
@@ -140,6 +141,9 @@ export function validateAndSanitizeBackup(parsed: unknown): AppState | null {
     : {}) as Partial<ScoringState>;
 
   const scoring: ScoringState = {
+    runId: typeof rawScoring.runId === 'string' ? rawScoring.runId : 'run-1',
+    runName: typeof rawScoring.runName === 'string' ? rawScoring.runName : '',
+    runStartedAt: typeof rawScoring.runStartedAt === 'string' ? rawScoring.runStartedAt : '',
     events: Array.isArray(rawScoring.events) ? rawScoring.events : [],
     judges: Array.isArray(rawScoring.judges) ? rawScoring.judges : [],
     scores: rawScoring.scores && typeof rawScoring.scores === 'object' ? rawScoring.scores : {},
@@ -151,6 +155,8 @@ export function validateAndSanitizeBackup(parsed: unknown): AppState | null {
     },
   };
 
+  const runs: RunArchive[] = sanitizeRuns(record.runs);
+
   return {
     schemaVersion: 4,
     participants,
@@ -158,5 +164,6 @@ export function validateAndSanitizeBackup(parsed: unknown): AppState | null {
     draftLog,
     settings,
     scoring,
+    runs,
   };
 }

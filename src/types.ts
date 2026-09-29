@@ -74,6 +74,8 @@ export interface Judge {
 }
 
 export interface ScoreEntry {
+  /** Run this score belongs to; entries from an older run are ignored after a new run starts */
+  runId?: string;
   judgeId: string;
   teamId: string;
   eventId: string;
@@ -83,6 +85,7 @@ export interface ScoreEntry {
 }
 
 export interface ScoreNote {
+  runId?: string;
   judgeId: string;
   teamId: string;
   eventId: string;
@@ -116,7 +119,31 @@ export interface ScoringSettings {
   announceEventAwardsFirst?: boolean;
 }
 
+export interface RunArchiveTeam {
+  teamId: string;
+  name: string;
+  color: string;
+  memberCount: number;
+  grandTotal: number;
+  rank: number;
+  completionPercentage: number;
+  eventScores: Record<string, number | null>;
+}
+
+export interface RunArchive {
+  id: string;
+  name: string;
+  startedAt: string;
+  endedAt: string;
+  eventNames: Record<string, string>;
+  judgesCount: number;
+  teams: RunArchiveTeam[];
+}
+
 export interface ScoringState {
+  runId?: string;
+  runName?: string;
+  runStartedAt?: string;
   events: ScoringEvent[];
   judges: Judge[];
   scores: Record<string, ScoreEntry>;
