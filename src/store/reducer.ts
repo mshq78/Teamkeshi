@@ -591,7 +591,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           scores: {
             ...state.scoring.scores,
             [key]: {
-              runId: state.scoring.runId,
               judgeId,
               teamId,
               eventId,
@@ -615,7 +614,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           notes: {
             ...state.scoring.notes,
             [key]: {
-              runId: state.scoring.runId,
               judgeId,
               teamId,
               eventId,
@@ -660,7 +658,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const { newRunId, newRunName, nowIso, archive, clearParticipants } = action.payload;
 
       // runs capped at newest 60
-      const updatedRuns = [archive, ...(state.runs || [])].slice(0, 60);
+      const updatedRuns = [archive, ...state.runs].slice(0, 60);
 
       // participants: clear or strip pickedAt
       const updatedParticipants = clearParticipants
@@ -707,7 +705,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'DELETE_RUN_ARCHIVE': {
       return {
         ...state,
-        runs: (state.runs || []).filter((r) => r.id !== action.payload.runId),
+        runs: state.runs.filter((r) => r.id !== action.payload.runId),
       };
     }
 

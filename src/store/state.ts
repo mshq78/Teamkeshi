@@ -8,7 +8,7 @@ export interface AppState {
   draftLog: DraftLogItem[];
   settings: AppSettings;
   scoring: ScoringState;
-  runs?: RunArchive[];
+  runs: RunArchive[];
 }
 
 export const INITIAL_SETTINGS: AppSettings = {

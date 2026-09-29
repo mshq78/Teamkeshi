@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   AppMode, 
@@ -26,6 +26,7 @@ import { SimpleDraftView } from './components/SimpleDraftView';
 import { AdvancedDashboard } from './components/AdvancedDashboard';
 import { ScoringContainer } from './components/scoring/ScoringContainer';
 import { JudgePortal } from './components/scoring/JudgePortal';
+import { useSyncStatus } from './components/SyncBadge';
 import { StageMode } from './components/scoring/StageMode';
 import { SmsModal } from './components/SmsModal';
 import { AddParticipantsModal } from './components/AddParticipantsModal';
@@ -52,6 +53,13 @@ export default function App() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
+
+  // One-off messages from the sync engine (e.g. a newer run exists on the server)
+  const syncStatus = useSyncStatus();
+  useEffect(() => {
+    if (syncStatus.noticeSeq > 0 && syncStatus.notice) showToast(syncStatus.notice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncStatus.noticeSeq]);
 
   const handleOpenSmsResults = (map: Record<string, { rank: number; totalTeams: number; grandTotal: number }>) => {
     setSmsResultsMap(map);

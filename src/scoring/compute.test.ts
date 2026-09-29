@@ -16,6 +16,7 @@ function createMockState(params: {
     participants: [],
     teams: params.teams,
     draftLog: [],
+    runs: [],
     settings: INITIAL_SETTINGS,
     scoring: {
       events: params.events,

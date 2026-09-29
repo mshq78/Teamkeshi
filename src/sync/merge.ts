@@ -14,8 +14,33 @@ import type { ScoreEntry, ScoreNote } from '../types';
 
 /** A judge-side change, queued on the phone until the server acknowledges it. */
 export type JudgeOp =
-  | { kind: 'score'; entry: ScoreEntry }
-  | { kind: 'note'; note: ScoreNote };
+  | { kind: 'score'; entry: ScoreEntry; runId?: string }
+  | { kind: 'note'; note: ScoreNote; runId?: string };
+
+const DEFAULT_RUN_ID = 'run-1';
+export const runIdOf = (state: AppState): string => state.scoring.runId || DEFAULT_RUN_ID;
+
+/** Thrown by mergeOperatorState when the operator's state belongs to an older run than the server's. */
+export class StaleRunError extends Error {
+  constructor() {
+    super('stale_run');
+    this.name = 'StaleRunError';
+  }
+}
+
+/** Fills run fields that older data (or an older server row) does not have. */
+export function withRunDefaults(state: AppState): AppState {
+  return {
+    ...state,
+    runs: Array.isArray(state.runs) ? state.runs : [],
+    scoring: {
+      ...state.scoring,
+      runId: state.scoring.runId || DEFAULT_RUN_ID,
+      runName: state.scoring.runName ?? '',
+      runStartedAt: state.scoring.runStartedAt ?? '',
+    },
+  };
+}
 
 function newer<T extends { updatedAt: string }>(a: T | undefined, b: T | undefined): T | undefined {
   if (!a) return b;
@@ -63,25 +88,32 @@ export function pruneOrphans(state: AppState): AppState {
 /**
  * Merges an operator's full state into the server state: the operator's
  * configuration wins, scores/notes are merged per key (last write wins).
+ *
+ * Runs: with the same runId this is the normal merge. If the operator started
+ * a newer run (later or equal runStartedAt) its state replaces the server's
+ * scores/notes outright, so the previous run never comes back. An operator
+ * that is still on an OLDER run than the server gets StaleRunError.
  */
 export function mergeOperatorState(server: AppState, operator: AppState): AppState {
-  // A new run started on the operator side: the server's scores belong to the
-  // previous run and must not be merged back in.
-  const sameRun = (server.scoring.runId ?? 'run-1') === (operator.scoring.runId ?? 'run-1');
-  return pruneOrphans({
-    ...operator,
-    scoring: {
-      ...operator.scoring,
-      scores: sameRun ? mergeRecords(server.scoring.scores, operator.scoring.scores) : operator.scoring.scores,
-      notes: sameRun ? mergeRecords(server.scoring.notes, operator.scoring.notes) : operator.scoring.notes,
-    },
-  });
+  if (runIdOf(server) === runIdOf(operator)) {
+    return pruneOrphans({
+      ...operator,
+      scoring: {
+        ...operator.scoring,
+        scores: mergeRecords(server.scoring.scores, operator.scoring.scores),
+        notes: mergeRecords(server.scoring.notes, operator.scoring.notes),
+      },
+    });
+  }
+  if ((operator.scoring.runStartedAt ?? '') >= (server.scoring.runStartedAt ?? '')) {
+    return pruneOrphans(operator);
+  }
+  throw new StaleRunError();
 }
 
-/** Entries stamped with another run are stale; entries without a stamp are treated as the first run. */
-export function isCurrentRun(state: AppState, entryRunId: string | undefined): boolean {
-  return (entryRunId ?? 'run-1') === (state.scoring.runId ?? 'run-1');
-}
+/** Ops without a runId (older clients) are accepted; stamped ops must match the current run. */
+const runMatches = (state: AppState, opRunId: string | undefined) =>
+  opRunId === undefined || opRunId === runIdOf(state);
 
 /**
  * Applies judge ops through the regular reducer, so every rule (event must be
@@ -98,13 +130,13 @@ export function applyJudgeOps(state: AppState, judgeId: string, ops: JudgeOp[]):
   for (const op of ops) {
     if (op.kind === 'score') {
       const e = op.entry;
-      if (e.judgeId !== judgeId || !allowed(e.eventId) || !isCurrentRun(next, e.runId)) continue;
+      if (e.judgeId !== judgeId || !allowed(e.eventId) || !runMatches(next, op.runId)) continue;
       const existing = next.scoring.scores[`${e.judgeId}|${e.teamId}|${e.indicatorId}`];
       if (existing && existing.updatedAt >= e.updatedAt) continue;
       next = appReducer(next, { type: 'SET_SCORE', payload: { ...e, source: 'judge' } });
     } else {
       const n = op.note;
-      if (n.judgeId !== judgeId || !allowed(n.eventId) || !isCurrentRun(next, n.runId)) continue;
+      if (n.judgeId !== judgeId || !allowed(n.eventId) || !runMatches(next, op.runId)) continue;
       const event = next.scoring.events.find((ev) => ev.id === n.eventId);
       if (!event || event.status === 'closed') continue;
       if (!next.teams.some((t) => t.id === n.teamId)) continue;

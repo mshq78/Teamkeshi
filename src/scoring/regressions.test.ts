@@ -29,6 +29,7 @@ function baseState(): AppState {
     participants: [],
     teams: [team('a'), team('b')],
     draftLog: [],
+    runs: [],
     settings: INITIAL_SETTINGS,
     scoring: {
       ...INITIAL_SCORING,

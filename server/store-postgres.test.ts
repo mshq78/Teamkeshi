@@ -18,6 +18,7 @@ function eventState(): AppState {
     participants: [],
     teams: ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id, color: '', badgeBg: '', borderColor: '', textColor: '', memberIds: [] })),
     draftLog: [],
+    runs: [],
     settings: INITIAL_SETTINGS,
     scoring: {
       ...INITIAL_SCORING,

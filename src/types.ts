@@ -74,8 +74,6 @@ export interface Judge {
 }
 
 export interface ScoreEntry {
-  /** Run this score belongs to; entries from an older run are ignored after a new run starts */
-  runId?: string;
   judgeId: string;
   teamId: string;
   eventId: string;
@@ -85,7 +83,6 @@ export interface ScoreEntry {
 }
 
 export interface ScoreNote {
-  runId?: string;
   judgeId: string;
   teamId: string;
   eventId: string;

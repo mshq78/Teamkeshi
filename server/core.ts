@@ -9,6 +9,7 @@ import type { Judge } from '../src/types';
 import {
   type JudgeOp,
   applyJudgeOps,
+  StaleRunError,
   isAppStateLike,
   mergeOperatorState,
   redactForJudge,
@@ -132,8 +133,14 @@ export async function handleApi(req: ApiRequest, store: Store, config: ApiConfig
       const body = (await req.json()) as { state?: unknown };
       const incoming = body.state;
       if (!isAppStateLike(incoming)) return err(400, 'invalid_state');
-      const result = await mutate(store, (current) => (current ? mergeOperatorState(current, incoming) : incoming));
-      return ok(result);
+      try {
+        const result = await mutate(store, (current) => (current ? mergeOperatorState(current, incoming) : incoming));
+        return ok(result);
+      } catch (e) {
+        // The operator is still on a run that the server has already moved past
+        if (e instanceof StaleRunError) return err(409, 'stale_run');
+        throw e;
+      }
     }
   }
 

@@ -9,6 +9,7 @@ function base(): AppState {
     participants: [],
     teams: ['a', 'b'].map((id) => ({ id, name: id, color: '', badgeBg: '', borderColor: '', textColor: '', memberIds: [] })),
     draftLog: [],
+    runs: [],
     settings: INITIAL_SETTINGS,
     scoring: {
       ...INITIAL_SCORING,

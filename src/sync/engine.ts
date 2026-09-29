@@ -1,7 +1,7 @@
 import { AppState } from '../store/state';
 import { AppAction } from '../store/actions';
 import { appReducer } from '../store/reducer';
-import { JudgeOp, isAppStateLike, isCurrentRun, mergeOperatorState } from './merge';
+import { JudgeOp, StaleRunError, isAppStateLike, mergeOperatorState, runIdOf, withRunDefaults } from './merge';
 
 /**
  * Browser-side sync engine.
@@ -26,7 +26,12 @@ export interface SyncStatus {
   pending: number;
   lastSyncAt: number | null;
   serverMode: 'online' | 'offline' | null;
+  /** One-off message for the user; the app shows it as a toast when noticeSeq changes */
+  notice: string | null;
+  noticeSeq: number;
 }
+
+export const STALE_RUN_NOTICE = 'اجرای جدیدتری روی سرور هست؛ اطلاعات از سرور بارگذاری شد';
 
 const ADMIN_KEY_STORAGE = 'teamkeshi_admin_key';
 const JUDGE_CODE_STORAGE = 'teamkeshi_judge_code';
@@ -121,6 +126,8 @@ class SyncEngine {
       pending: this.pendingCount(),
       lastSyncAt: null,
       serverMode: null,
+      notice: null,
+      noticeSeq: 0,
     };
   }
 
@@ -187,11 +194,13 @@ class SyncEngine {
     } else if (this.role === 'judge') {
       // Stamp with the run the judge is looking at, so a late upload can never
       // land in a run that started afterwards.
-      const runId = this.getState ? this.getState().scoring.runId : undefined;
+      const runId = this.getState ? runIdOf(this.getState()) : undefined;
       if (action.type === 'SET_SCORE') {
-        this.enqueue({ kind: 'score', entry: { ...action.payload, runId } });
+        const { source: _source, ...entry } = action.payload;
+        void _source;
+        this.enqueue({ kind: 'score', entry, runId });
       } else if (action.type === 'SET_NOTE' || action.type === 'SET_SCORE_NOTE') {
-        this.enqueue({ kind: 'note', note: { ...action.payload, runId } });
+        this.enqueue({ kind: 'note', note: { ...action.payload }, runId });
       }
     }
   }
@@ -273,15 +282,21 @@ class SyncEngine {
       const sentVersion = this.localVersion;
       const res = await request('PUT', '/api/state', this.adminHeaders(), { state: this.getState() });
       if (res.status === 401) return this.setStatus({ phase: 'unauthorized' });
+      if (res.status === 409 && res.data.error === 'stale_run') return this.adoptServerAfterStaleRun();
       if (res.status !== 200 || !isAppStateLike(res.data.state)) throw new Error('push_failed');
-      const serverState = res.data.state;
+      const serverState = withRunDefaults(res.data.state);
       if (this.localVersion === sentVersion) {
         this.dirty = false;
         lsSet(DIRTY_STORAGE, null);
         this.replace(serverState);
       } else {
         // The user kept editing while we were pushing: keep their newer edits
-        this.replace(mergeOperatorState(serverState, this.getState()));
+        try {
+          this.replace(mergeOperatorState(serverState, this.getState()));
+        } catch (e) {
+          if (!(e instanceof StaleRunError)) throw e;
+          this.replace(serverState);
+        }
       }
       this.markSynced(Number(res.data.rev));
       return;
@@ -297,9 +312,20 @@ class SyncEngine {
       return;
     }
     if (!res.data.unchanged && isAppStateLike(res.data.state) && !this.dirty) {
-      this.replace(res.data.state);
+      this.replace(withRunDefaults(res.data.state));
     }
     this.markSynced(Number(res.data.rev));
+  }
+
+  /** The server is already on a newer run: drop local edits and take the server's state. */
+  private async adoptServerAfterStaleRun() {
+    const res = await request('GET', '/api/state', this.adminHeaders());
+    if (res.status !== 200 || !isAppStateLike(res.data.state) || !this.replace) throw new Error('pull_failed');
+    this.dirty = false;
+    lsSet(DIRTY_STORAGE, null);
+    this.replace(withRunDefaults(res.data.state));
+    this.markSynced(Number(res.data.rev));
+    this.setStatus({ notice: STALE_RUN_NOTICE, noticeSeq: this.status.noticeSeq + 1 });
   }
 
   // ------------------------------------------------------------ judge
@@ -316,7 +342,7 @@ class SyncEngine {
       if (res.status !== 200 || !isAppStateLike(res.data.state)) return 'ارتباط با سرور برقرار نشد';
       lsSet(JUDGE_CODE_STORAGE, code);
       lsSet(JUDGE_ID_STORAGE, String(res.data.judgeId));
-      this.replace(res.data.state);
+      this.replace(this.adoptServerState(res.data.state));
       this.markSynced(Number(res.data.rev));
       this.kick(POLL_MS);
       return null;
@@ -350,7 +376,7 @@ class SyncEngine {
       // Drop exactly the ops that were sent (newer edits to the same cell stay queued)
       this.outbox = this.outbox.filter((o) => !sending.includes(o));
       lsSet(OUTBOX_STORAGE, JSON.stringify(this.outbox));
-      this.replace(this.withPendingOps(res.data.state));
+      this.replace(this.adoptServerState(res.data.state));
       this.markSynced(Number(res.data.rev));
       return;
     }
@@ -359,20 +385,25 @@ class SyncEngine {
     if (res.status === 401) return this.setStatus({ phase: 'unauthorized' });
     if (res.status !== 200) throw new Error('pull_failed');
     if (!res.data.unchanged && isAppStateLike(res.data.state)) {
-      this.replace(this.withPendingOps(res.data.state));
+      this.replace(this.adoptServerState(res.data.state));
     }
     this.markSynced(Number(res.data.rev));
   }
 
-  /** Re-applies not-yet-acknowledged ops on top of a server snapshot. */
-  private withPendingOps(state: AppState): AppState {
-    // A new run started on the operator side: queued scores of the previous
-    // run must not be sent (the server would reject them anyway).
-    const before = this.outbox.length;
-    this.outbox = this.outbox.filter((op) =>
-      isCurrentRun(state, op.kind === 'score' ? op.entry.runId : op.note.runId)
-    );
-    if (this.outbox.length !== before) {
+  /**
+   * Takes a server snapshot as the judge's local state. If it belongs to a
+   * different run than the local one, the whole pending queue is dropped (it
+   * can only contain scores of the finished run); otherwise queued ops that
+   * are still unacknowledged are re-applied on top of it.
+   */
+  private adoptServerState(serverState: AppState): AppState {
+    const state = withRunDefaults(serverState);
+    const serverRun = runIdOf(state);
+    const local = this.getState ? this.getState() : null;
+    const runChanged = !!local && runIdOf(local) !== serverRun;
+    const keep = runChanged ? [] : this.outbox.filter((op) => op.runId === undefined || op.runId === serverRun);
+    if (keep.length !== this.outbox.length) {
+      this.outbox = keep;
       lsSet(OUTBOX_STORAGE, JSON.stringify(this.outbox));
       this.setStatus({});
     }
